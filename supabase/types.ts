@@ -1,8 +1,8 @@
-// Supabase database types — Slice 0 (profiles).
+// Supabase database types — Slice 0 (profiles) + Slice 1 (catalog).
 //
 // ⚠️ PLACEHOLDER — hand-authored, intentional deviation (recorded in 03_verify).
 // _config/data_conventions.md requires GENERATED types, but typegen needs a live
-// Supabase project, which does not exist yet (local-first). This mirrors the migration
+// Supabase project, which does not exist yet (local-first). This mirrors the migrations
 // exactly so swapping is seamless. REGENERATE at cloud-wiring time:
 //
 //   supabase gen types typescript --project-id <PROJECT_ID> --schema public \
@@ -50,14 +50,198 @@ export type Database = {
           },
         ];
       };
+      categories: {
+        Row: {
+          id: string;
+          slug: string;
+          name: string;
+          description: string | null;
+          position: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          slug: string;
+          name: string;
+          description?: string | null;
+          position?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          slug?: string;
+          name?: string;
+          description?: string | null;
+          position?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      products: {
+        Row: {
+          id: string;
+          slug: string;
+          title: string;
+          description: string | null;
+          brand: string | null;
+          status: Database["public"]["Enums"]["product_status"];
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          slug: string;
+          title: string;
+          description?: string | null;
+          brand?: string | null;
+          status?: Database["public"]["Enums"]["product_status"];
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          slug?: string;
+          title?: string;
+          description?: string | null;
+          brand?: string | null;
+          status?: Database["public"]["Enums"]["product_status"];
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      product_images: {
+        Row: {
+          id: string;
+          product_id: string;
+          url: string;
+          alt: string | null;
+          position: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          product_id: string;
+          url: string;
+          alt?: string | null;
+          position?: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          product_id?: string;
+          url?: string;
+          alt?: string | null;
+          position?: number;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "product_images_product_id_fkey";
+            columns: ["product_id"];
+            isOneToOne: false;
+            referencedRelation: "products";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      variants: {
+        Row: {
+          id: string;
+          product_id: string;
+          sku: string;
+          title: string;
+          price_cents: number;
+          currency: string;
+          inventory_count: number;
+          position: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          product_id: string;
+          sku: string;
+          title: string;
+          price_cents: number;
+          currency?: string;
+          inventory_count?: number;
+          position?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          product_id?: string;
+          sku?: string;
+          title?: string;
+          price_cents?: number;
+          currency?: string;
+          inventory_count?: number;
+          position?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "variants_product_id_fkey";
+            columns: ["product_id"];
+            isOneToOne: false;
+            referencedRelation: "products";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      product_categories: {
+        Row: {
+          product_id: string;
+          category_id: string;
+        };
+        Insert: {
+          product_id: string;
+          category_id: string;
+        };
+        Update: {
+          product_id?: string;
+          category_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "product_categories_product_id_fkey";
+            columns: ["product_id"];
+            isOneToOne: false;
+            referencedRelation: "products";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "product_categories_category_id_fkey";
+            columns: ["category_id"];
+            isOneToOne: false;
+            referencedRelation: "categories";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: Record<never, never>;
     Functions: Record<never, never>;
-    Enums: Record<never, never>;
+    Enums: {
+      product_status: "draft" | "active" | "archived";
+    };
     CompositeTypes: Record<never, never>;
   };
 };
 
+// Convenience row aliases (regeneration keeps these stable).
 export type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 export type ProfileInsert = Database["public"]["Tables"]["profiles"]["Insert"];
 export type ProfileUpdate = Database["public"]["Tables"]["profiles"]["Update"];
+
+export type Category = Database["public"]["Tables"]["categories"]["Row"];
+export type Product = Database["public"]["Tables"]["products"]["Row"];
+export type ProductImage = Database["public"]["Tables"]["product_images"]["Row"];
+export type Variant = Database["public"]["Tables"]["variants"]["Row"];
+export type ProductStatus = Database["public"]["Enums"]["product_status"];
