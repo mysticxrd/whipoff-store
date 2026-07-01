@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ProductImage } from "@/components/catalog/product-image";
+import { CatalogImage } from "@/components/catalog/catalog-image";
 import { fromPrice } from "@/lib/catalog/select";
 import { formatPrice, formatPriceFrom } from "@/lib/money";
 import type { CatalogProduct } from "@/lib/catalog/seed";
@@ -15,11 +15,12 @@ export function ProductCard({ product }: { product: CatalogProduct }) {
       href={`/products/${product.slug}`}
       className="group flex flex-col overflow-hidden rounded-lg border border-border bg-card text-card-foreground transition-colors hover:border-foreground/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
     >
-      <div className="relative aspect-square w-full overflow-hidden">
-        <ProductImage
-          token={primary?.url ?? product.slug}
+      <div className="relative aspect-square w-full overflow-hidden bg-green-50">
+        <CatalogImage
+          url={primary?.url ?? `gradient:${product.slug}:0`}
           alt={primary?.alt ?? product.title}
           name={product.title}
+          className="object-cover"
         />
       </div>
       <div className="flex flex-1 flex-col gap-1 p-3">

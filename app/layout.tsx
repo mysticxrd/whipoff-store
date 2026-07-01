@@ -1,15 +1,23 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter, Fraunces } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 import { GoogleAnalytics } from "@/components/analytics/ga";
+import { AnnouncementBar } from "@/components/layout/announcement-bar";
+import { SiteHeader } from "@/components/layout/site-header";
+import { SiteFooter } from "@/components/layout/site-footer";
 
-const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
-const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
+// Brand type: Inter for UI/body, Fraunces (variable serif) for display headings.
+const inter = Inter({ variable: "--font-inter", subsets: ["latin"], display: "swap" });
+const fraunces = Fraunces({
+  variable: "--font-fraunces",
+  subsets: ["latin"],
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: { default: "Whipoff — Car Care", template: "%s · Whipoff" },
-  description: "Mobile-first car-care essentials.",
+  description: "Hydroilx™ pH-neutral, ceramic-safe car shampoo. Mobile-first car-care essentials.",
 };
 
 export default function RootLayout({
@@ -18,10 +26,15 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${inter.variable} ${fraunces.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col">
-        <Providers>{children}</Providers>
+        <Providers>
+          <AnnouncementBar />
+          <SiteHeader />
+          <div className="flex flex-1 flex-col">{children}</div>
+          <SiteFooter />
+        </Providers>
         <GoogleAnalytics />
       </body>
     </html>

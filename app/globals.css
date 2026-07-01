@@ -1,69 +1,178 @@
 @import "tailwindcss";
 
 /*
- * Whipoff design tokens — PLACEHOLDER set (Slice 0).
- * Replace from the Claude Design → Claude Code handoff bundle (see
- * ../_config/design_system.md). Components reference these semantic tokens only —
- * no hardcoded colors. Dark mode follows the OS via prefers-color-scheme (no toggle
- * in the skeleton).
+ * Whipoff design tokens — from the Claude Design → Claude Code handoff
+ * (handoff/uploads/whipoff-tokens.css, mirrored in _config/design_system.md).
+ * Architecture: PRIMITIVES (raw values) → SEMANTIC ROLES → shadcn bridge.
+ * Components reference the semantic/role tokens or the primitive scale — never
+ * hardcoded hex. Light-only: the handoff ships no dark palette, so dark mode is
+ * deferred until the designer provides one (see design_system.md).
  */
 :root {
-  --radius: 0.625rem;
+  /* 1. PRIMITIVE — Forest (brand) scale; 800 = box green, 600 = liquid emerald */
+  --green-50:  #f1f8f3;
+  --green-100: #dceee2;
+  --green-200: #bbdcc8;
+  --green-300: #8fc3a6;
+  --green-400: #5ca37e;
+  --green-500: #2e8159;
+  --green-600: #1e7a4d;
+  --green-700: #17613d;
+  --green-800: #143a2b;
+  --green-900: #0e2a20;
+  --green-950: #0a1f17;
 
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.18 0.02 250);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.18 0.02 250);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.18 0.02 250);
+  /* 2. PRIMITIVE — Ink (green-tinted neutral) scale; 900 = cap black, 50 = ground */
+  --ink-950: #0d110f;
+  --ink-900: #141815;
+  --ink-800: #202622;
+  --ink-700: #313833;
+  --ink-600: #4a524c;
+  --ink-500: #66706a;
+  --ink-400: #8b958e;
+  --ink-300: #b4bcb6;
+  --ink-200: #d6dbd6;
+  --ink-100: #e9ece8;
+  --ink-50:  #f5f7f3;
+  --white:   #ffffff;
 
-  /* brand accent — placeholder blue */
-  --primary: oklch(0.52 0.16 250);
-  --primary-foreground: oklch(0.98 0 0);
-  --secondary: oklch(0.96 0.01 250);
-  --secondary-foreground: oklch(0.22 0.03 250);
-  --muted: oklch(0.96 0.01 250);
-  --muted-foreground: oklch(0.52 0.02 250);
-  --accent: oklch(0.95 0.03 220);
-  --accent-foreground: oklch(0.22 0.03 250);
-  --destructive: oklch(0.58 0.22 27);
-  --destructive-foreground: oklch(0.98 0 0);
+  /* 3. PRIMITIVE — status hues (tuned to coexist with green) */
+  --success-600: #2e9e63; --success-50: #e6f5ec;
+  --danger-600:  #c23b30; --danger-50:  #fbeae8;
+  --warning-600: #c2871a; --warning-50: #fbf1df;
+  --info-600:    #2c6e8a; --info-50:    #e5f0f4;
 
-  --border: oklch(0.92 0.01 250);
-  --input: oklch(0.92 0.01 250);
-  --ring: oklch(0.52 0.16 250);
+  /* 4. SEMANTIC ROLE TOKENS (design vocabulary) */
+  --color-bg:              var(--ink-50);
+  --color-surface:         var(--white);
+  --color-surface-sunken:  var(--ink-100);
+  --color-surface-inverse: var(--green-900);
+  --color-text:            var(--ink-900);
+  --color-text-secondary:  var(--ink-500);
+  --color-text-muted:      var(--ink-400);
+  --color-text-inverse:    var(--white);
+  --color-text-on-brand:   var(--white);
+  --color-text-link:       var(--green-700);
+  --color-border:          var(--ink-200);
+  --color-border-strong:   var(--ink-300);
+  --color-divider:         var(--ink-100);
+  --color-brand:           var(--green-800);
+  --color-brand-hover:     var(--green-900);
+  --color-brand-active:    var(--green-950);
+  --color-brand-subtle:    var(--green-50);
+  --color-accent:          var(--green-600);
+  --color-focus:           var(--green-600);
+  --color-price:           var(--ink-900);
+  --color-price-sale:      var(--danger-600);
 
-  --brand: var(--primary);
-  --brand-foreground: var(--primary-foreground);
+  /* 5. TYPOGRAPHY — Fraunces (display) + Inter (sans); next/font sets the *var* names */
+  --font-sans:    var(--font-inter), system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-display: var(--font-fraunces), "Playfair Display", Georgia, "Times New Roman", serif;
+  --font-mono:    ui-monospace, "SF Mono", "Space Mono", Menlo, Consolas, monospace;
+
+  --text-display: clamp(2.5rem, 9vw, 4rem);
+  --text-h1:      clamp(2rem, 7vw, 3rem);
+  --text-h2:      clamp(1.5rem, 5vw, 2rem);
+  --text-h3:      1.25rem;
+  --text-lg:      1.125rem;
+  --text-base:    1rem;
+  --text-sm:      0.875rem;
+  --text-xs:      0.75rem;
+
+  --leading-tight: 1.05; --leading-snug: 1.2; --leading-normal: 1.5; --leading-relaxed: 1.65;
+  --tracking-tight: -0.02em; --tracking-normal: 0; --tracking-wide: 0.08em;
+
+  /* 6. SPACING / SIZING */
+  --gutter: 1rem;
+  --container-max: 1100px;
+  --tap-min: 44px;
+
+  /* 7. RADII — design semantics (md = buttons/inputs, lg = cards, xl = sheets) */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-pill: 999px;
+
+  /* 8. ELEVATION — green-tinted soft shadows */
+  --shadow-xs:  0 1px 2px rgba(14, 42, 32, 0.06);
+  --shadow-sm:  0 2px 8px rgba(14, 42, 32, 0.08);
+  --shadow-md:  0 6px 18px rgba(14, 42, 32, 0.10);
+  --shadow-lg:  0 14px 34px rgba(10, 31, 23, 0.16);
+  --shadow-cta: 0 -6px 24px rgba(10, 31, 23, 0.12);
+  --ring-focus: 0 0 0 3px rgba(30, 122, 77, 0.40);
+
+  /* 9. MOTION */
+  --dur-fast: 120ms; --dur-base: 200ms; --dur-slow: 320ms;
+  --ease-standard: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --ease-out:      cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* 10. shadcn/ui BRIDGE — map shadcn semantic names onto the design roles so
+     every existing primitive (button, card, input, badge…) adopts the brand. */
+  --radius: var(--radius-md);
+  --background: var(--color-bg);
+  --foreground: var(--color-text);
+  --card: var(--color-surface);
+  --card-foreground: var(--color-text);
+  --popover: var(--color-surface);
+  --popover-foreground: var(--color-text);
+  --primary: var(--color-brand);
+  --primary-foreground: var(--color-text-on-brand);
+  --secondary: var(--color-surface-sunken);
+  --secondary-foreground: var(--color-text);
+  --muted: var(--color-surface-sunken);
+  --muted-foreground: var(--color-text-secondary);
+  --accent: var(--color-brand-subtle);
+  --accent-foreground: var(--color-brand);
+  --destructive: var(--danger-600);
+  --destructive-foreground: var(--white);
+  --border: var(--color-border);
+  --input: var(--color-border);
+  --ring: var(--color-focus);
+  --brand: var(--color-brand);
+  --brand-foreground: var(--color-text-on-brand);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: oklch(0.16 0.02 250);
-    --foreground: oklch(0.98 0 0);
-    --card: oklch(0.2 0.02 250);
-    --card-foreground: oklch(0.98 0 0);
-    --popover: oklch(0.2 0.02 250);
-    --popover-foreground: oklch(0.98 0 0);
-
-    --primary: oklch(0.7 0.14 250);
-    --primary-foreground: oklch(0.16 0.02 250);
-    --secondary: oklch(0.27 0.02 250);
-    --secondary-foreground: oklch(0.98 0 0);
-    --muted: oklch(0.27 0.02 250);
-    --muted-foreground: oklch(0.72 0.02 250);
-    --accent: oklch(0.3 0.04 220);
-    --accent-foreground: oklch(0.98 0 0);
-    --destructive: oklch(0.62 0.21 25);
-    --destructive-foreground: oklch(0.98 0 0);
-
-    --border: oklch(0.3 0.01 250);
-    --input: oklch(0.32 0.01 250);
-    --ring: oklch(0.7 0.14 250);
-  }
+@media (prefers-reduced-motion: reduce) {
+  :root { --dur-fast: 0ms; --dur-base: 0ms; --dur-slow: 0ms; }
 }
 
 @theme inline {
+  /* Primitive palette as Tailwind colors (bg-green-800, text-ink-500, …) */
+  --color-green-50: var(--green-50);
+  --color-green-100: var(--green-100);
+  --color-green-200: var(--green-200);
+  --color-green-300: var(--green-300);
+  --color-green-400: var(--green-400);
+  --color-green-500: var(--green-500);
+  --color-green-600: var(--green-600);
+  --color-green-700: var(--green-700);
+  --color-green-800: var(--green-800);
+  --color-green-900: var(--green-900);
+  --color-green-950: var(--green-950);
+  --color-ink-50: var(--ink-50);
+  --color-ink-100: var(--ink-100);
+  --color-ink-200: var(--ink-200);
+  --color-ink-300: var(--ink-300);
+  --color-ink-400: var(--ink-400);
+  --color-ink-500: var(--ink-500);
+  --color-ink-600: var(--ink-600);
+  --color-ink-700: var(--ink-700);
+  --color-ink-800: var(--ink-800);
+  --color-ink-900: var(--ink-900);
+  --color-ink-950: var(--ink-950);
+  --color-white: var(--white);
+  --color-success: var(--success-600);
+  --color-success-bg: var(--success-50);
+  --color-danger: var(--danger-600);
+  --color-danger-bg: var(--danger-50);
+  --color-warning: var(--warning-600);
+  --color-warning-bg: var(--warning-50);
+  --color-info: var(--info-600);
+  --color-info-bg: var(--info-50);
+
+  /* shadcn semantic colors */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -85,20 +194,63 @@
   --color-ring: var(--ring);
   --color-brand: var(--brand);
   --color-brand-foreground: var(--brand-foreground);
+  --color-brand-accent: var(--color-accent);
 
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  /* Radii → design scale (rounded-sm/md/lg/xl match the handoff) */
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
 
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* Elevation */
+  --shadow-xs: var(--shadow-xs);
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --shadow-cta: var(--shadow-cta);
+
+  /* Type families */
+  --font-sans: var(--font-sans);
+  --font-display: var(--font-display);
+  --font-mono: var(--font-mono);
 }
 
 @layer base {
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
-    font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+    font-family: var(--font-sans);
+    font-size: 1rem;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
+  /* Display headings use Fraunces via the .font-display utility or this base. */
+  h1, h2, h3 { font-family: var(--font-display); letter-spacing: var(--tracking-tight); }
+  /* Native accordions (SpecAccordion) draw their own "+" glyph — suppress the default marker. */
+  summary { list-style: none; }
+  summary::-webkit-details-marker { display: none; }
+}
+
+/* Landing-page decorative motion (Marquee, Hero's floating bottle). Plain keyframes/utilities —
+   not driven by the --dur-* tokens above, so reduced-motion is handled explicitly below. */
+@keyframes wo-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+@keyframes wo-float {
+  0% { transform: translateY(0) rotate(-1.6deg); }
+  28% { transform: translateY(-11px) rotate(1.4deg); }
+  55% { transform: translateY(-18px) rotate(-1deg); }
+  78% { transform: translateY(-7px) rotate(1.8deg); }
+  100% { transform: translateY(0) rotate(-1.6deg); }
+}
+.animate-marquee { animation: wo-marquee 26s linear infinite; }
+.animate-float {
+  animation: wo-float 4.5s ease-in-out infinite;
+  transform-origin: 50% 72%;
+  will-change: transform;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-marquee, .animate-float { animation: none; }
 }

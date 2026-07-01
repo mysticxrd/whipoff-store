@@ -28,6 +28,19 @@ export function formatPriceFrom(minorUnits: number, currency: string): string {
   return `from ${formatPrice(minorUnits, currency)}`;
 }
 
+// The launch sale is a flat 20%-off promo (design copy: "Save 20%"). `price_cents` always
+// holds the real, currently-charged amount — there is no `compare_at_price` column (no schema
+// change for a re-skin). The strikethrough "was" price shown next to it is a DERIVED display
+// figure only, computed at render time, never stored or charged.
+/** Whether the launch-sale badge/strikethrough renders across the storefront. Flip to end it. */
+export const LAUNCH_SALE_ACTIVE = true;
+const LAUNCH_SALE_FRACTION = 0.8;
+
+/** The pre-sale strikethrough price for a launch-sale variant, derived from its current price. */
+export function formatWasPrice(saleMinorUnits: number, currency: string): string {
+  return formatPrice(Math.round(saleMinorUnits / LAUNCH_SALE_FRACTION), currency);
+}
+
 /**
  * Format a price span. Returns a single price when min === max, otherwise "min – max".
  * (Reserved for surfaces that show a range rather than a "from" price.)

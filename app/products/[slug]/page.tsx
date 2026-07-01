@@ -4,16 +4,15 @@ import { notFound } from "next/navigation";
 import { productSlugSchema } from "@/lib/contracts";
 import { getProductBySlug } from "@/lib/catalog/queries";
 import { fromPrice } from "@/lib/catalog/select";
-import { ProductGallery } from "@/components/catalog/product-gallery";
 import { ProductViewTracker } from "@/components/catalog/product-view-tracker";
-import { VariantSelector } from "@/components/catalog/variant-selector";
-import { Badge } from "@/components/ui/badge";
+import { BuyBlock } from "@/components/product/buy-block";
 
 type PageProps = { params: Promise<{ slug: string }> };
 
-// PDP. The slug is validated STRICTLY (productSlugSchema): a malformed slug can match no product,
-// so the page 404s rather than rendering an error. Only active products are returned (mirrors the
-// public-read RLS) — draft/archived slugs 404 too.
+// PDP = the handoff's "BUY" section (design-map.md: single-product IA). The slug is validated
+// STRICTLY (productSlugSchema): a malformed slug can match no product, so the page 404s rather
+// than rendering an error. Only active products are returned (mirrors the public-read RLS) —
+// draft/archived slugs 404 too.
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
   const parsed = productSlugSchema.safeParse({ slug });
@@ -41,49 +40,17 @@ export default async function ProductPage({ params }: PageProps) {
   const price = fromPrice(product);
 
   return (
-    // pb-28 keeps content clear of the fixed bottom add-to-cart bar.
-    <main className="mx-auto w-full max-w-3xl px-4 py-6 pb-28">
-      <Link
-        href="/products"
-        className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
-      >
-        ← Back to shop
-      </Link>
-
-      <div className="mt-4 grid gap-8 sm:grid-cols-2">
-        <ProductGallery images={product.images} productName={product.title} />
-
-        <div className="flex flex-col gap-4">
-          <div>
-            {product.brand ? (
-              <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                {product.brand}
-              </span>
-            ) : null}
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">
-              {product.title}
-            </h1>
-          </div>
-
-          <VariantSelector productId={product.id} variants={product.variants} />
-
-          {product.description ? (
-            <p className="text-sm leading-relaxed text-muted-foreground">
-              {product.description}
-            </p>
-          ) : null}
-
-          {product.categories.length > 0 ? (
-            <div className="flex flex-wrap gap-2 pt-1">
-              {product.categories.map((category) => (
-                <Link key={category.id} href={`/products?category=${category.slug}`}>
-                  <Badge variant="muted">{category.name}</Badge>
-                </Link>
-              ))}
-            </div>
-          ) : null}
-        </div>
+    <main className="flex flex-1 flex-col">
+      <div className="mx-auto w-full max-w-xl px-5 pt-5">
+        <Link
+          href="/products"
+          className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
+        >
+          ← Back to shop
+        </Link>
       </div>
+
+      <BuyBlock product={product} headingLevel="h1" />
 
       <ProductViewTracker
         productId={product.id}
