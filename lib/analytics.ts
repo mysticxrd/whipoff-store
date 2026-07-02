@@ -36,6 +36,21 @@ type VariantSelectedProps = {
   currency: string;
 };
 
+type CartViewedProps = {
+  cart_value_minor: number;
+  currency: string;
+  item_count: number;
+};
+
+type CartLineEventProps = {
+  product_id: string;
+  variant_id: string;
+  quantity: number;
+  value_minor: number;
+  currency: string;
+  cart_value_minor: number;
+};
+
 export const analytics = {
   productListViewed(props: ListViewedProps): void {
     capture("product_list_viewed", props);
@@ -45,5 +60,17 @@ export const analytics = {
   },
   variantSelected(props: VariantSelectedProps): void {
     capture("variant_selected", props);
+  },
+  cartViewed(props: CartViewedProps): void {
+    capture("cart_viewed", props);
+  },
+  cartItemAdded(props: CartLineEventProps): void {
+    capture("cart_item_added", props);
+  },
+  cartQuantityUpdated(props: CartLineEventProps): void {
+    capture("cart_quantity_updated", props);
+  },
+  cartItemRemoved(props: CartLineEventProps): void {
+    capture("cart_item_removed", props);
   },
 };

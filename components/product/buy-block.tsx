@@ -3,6 +3,7 @@ import { VariantSelector } from "@/components/catalog/variant-selector";
 import { RatingStars } from "@/components/product/rating-stars";
 import { SpecAccordion } from "@/components/product/spec-accordion";
 import type { CatalogProduct } from "@/lib/catalog/seed";
+import { FREE_SHIP_THRESHOLD_MINOR, formatPrice } from "@/lib/money";
 
 const FEATURE_CHIPS = ["pH-neutral", "Ceramic-safe", "High-foam"];
 
@@ -75,8 +76,9 @@ export function BuyBlock({
             ~25 washes at 1:256 dilution. Vegan, never tested on animals.
           </SpecAccordion>
           <SpecAccordion title="Shipping & returns">
-            Free delivery across India over ₹999, dispatched same day on orders before 2pm.
-            30-day returns on unopened bottles, no questions asked.
+            Free delivery across India over {formatPrice(FREE_SHIP_THRESHOLD_MINOR, "INR")},
+            dispatched same day on orders before 2pm. 30-day returns on unopened bottles, no
+            questions asked.
           </SpecAccordion>
         </div>
       </div>

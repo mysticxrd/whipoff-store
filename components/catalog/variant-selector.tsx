@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { AddToCartCta } from "@/components/catalog/add-to-cart-cta";
+import { useCart } from "@/components/cart/cart-provider";
 import { analytics } from "@/lib/analytics";
 import { formatPrice, formatWasPrice, LAUNCH_SALE_ACTIVE } from "@/lib/money";
 import { cn } from "@/lib/utils";
@@ -19,10 +20,13 @@ export function VariantSelector({
   /** Forwarded to AddToCartCta: fixed bottom bar (PDP) vs. an inline button (homepage). */
   sticky?: boolean;
 }) {
+  const { addItem } = useCart();
   const [selectedId, setSelectedId] = useState<string>(
     () => (variants.find((v) => v.inventory_count > 0) ?? variants[0])?.id ?? "",
   );
   const [qty, setQty] = useState(1);
+  const [isAdding, startAdding] = useTransition();
+  const [addError, setAddError] = useState<string | null>(null);
 
   const selected = variants.find((v) => v.id === selectedId) ?? variants[0];
   if (!selected) return null; // no variants — nothing to purchase (defensive)
@@ -37,11 +41,23 @@ export function VariantSelector({
   function select(variant: Variant) {
     setSelectedId(variant.id);
     setQty((q) => Math.min(q, Math.max(1, variant.inventory_count)));
+    setAddError(null);
     analytics.variantSelected({
       product_id: productId,
       variant_id: variant.id,
       value_minor: variant.price_cents,
       currency: variant.currency,
+    });
+  }
+
+  function handleAddToCart() {
+    setAddError(null);
+    startAdding(async () => {
+      // Re-check inside the closure: TS doesn't carry the component-level narrowing of `selected`
+      // across this function boundary, even though it's guaranteed non-null by the early return above.
+      if (!selected) return;
+      const result = await addItem(selected.id, qty);
+      if (!result.ok) setAddError(result.error.message);
     });
   }
 
@@ -125,7 +141,14 @@ export function VariantSelector({
         </span>
       </div>
 
-      <AddToCartCta priceLabel={priceLabel} available={available} sticky={sticky} />
+      <AddToCartCta
+        priceLabel={priceLabel}
+        available={available}
+        pending={isAdding}
+        error={addError}
+        onAddToCart={handleAddToCart}
+        sticky={sticky}
+      />
     </div>
   );
 }

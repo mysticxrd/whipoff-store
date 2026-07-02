@@ -75,6 +75,28 @@ export async function getProductBySlug(
   return findProductBySlug(await loadCatalog(), slug);
 }
 
+/** A variant joined with its parent product (cart lines need both for display + pricing). */
+export type VariantWithProduct = {
+  variant: Variant;
+  product: CatalogProduct;
+};
+
+/**
+ * Look up a single variant by id, with its parent product, for cart hydration. Searches the
+ * same active catalog the PLP/PDP use (Supabase-with-seed-fallback), so pricing/availability is
+ * always read live, never trusted from stored cart state (security_shield flaw #3).
+ */
+export async function getVariantWithProduct(
+  variantId: string,
+): Promise<VariantWithProduct | null> {
+  const catalog = await loadCatalog();
+  for (const product of catalog) {
+    const variant = product.variants.find((v) => v.id === variantId);
+    if (variant) return { variant, product };
+  }
+  return null;
+}
+
 /** Browse facets for the category filter. */
 export async function listCategories(): Promise<Category[]> {
   try {

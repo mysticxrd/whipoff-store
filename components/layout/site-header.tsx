@@ -1,11 +1,11 @@
 import Link from "next/link";
-import { ShoppingCart, User } from "lucide-react";
+import { User } from "lucide-react";
+import { CartTrigger } from "@/components/cart/cart-trigger";
 
 /**
  * Global header — dark translucent forest bar (design: sticky, blurred).
  * Brand → home, "Shop" → catalog, account + cart affordances on the right.
- * NOTE: the cart link targets /cart, wired up with a live item count in the
- * Cart slice (Slice 2). For now it is a static affordance.
+ * The cart button (Slice 2) shows a live item count and opens the drawer.
  */
 export function SiteHeader() {
   return (
@@ -32,14 +32,7 @@ export function SiteHeader() {
           >
             <User className="size-5" strokeWidth={1.8} />
           </Link>
-          <Link
-            href="/cart"
-            aria-label="Cart"
-            className="inline-flex min-h-11 items-center gap-2 rounded-full border-[1.5px] border-white/40 px-4 text-white transition-colors hover:border-white/70 hover:bg-white/10"
-          >
-            <ShoppingCart className="size-5" strokeWidth={1.8} />
-            <span className="text-sm font-semibold sm:hidden">Cart</span>
-          </Link>
+          <CartTrigger />
         </nav>
       </div>
     </header>

@@ -29,7 +29,11 @@ export async function signIn(
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithOtp({
     email: parsed.data.email,
-    options: { emailRedirectTo: `${clientEnv.NEXT_PUBLIC_APP_URL}/account` },
+    // Routes through /auth/callback (Slice 2) so the PKCE code exchange runs server-side AND the
+    // guest cart gets one guaranteed chance to merge into the signed-in cart before /account loads.
+    options: {
+      emailRedirectTo: `${clientEnv.NEXT_PUBLIC_APP_URL}/auth/callback?redirectTo=/account`,
+    },
   });
   if (error) {
     return fail({ code: "auth", message: error.message });

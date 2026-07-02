@@ -1,4 +1,4 @@
-// Zod contracts — Slice 0 (auth + profile) + Slice 1 (catalog reads).
+// Zod contracts — Slice 0 (auth + profile) + Slice 1 (catalog reads) + Slice 2 (cart mutations).
 //
 // SINGLE SOURCE OF TRUTH for input validation, shared by client (UX) and server
 // (re-validation). See ../../shared/api_conventions.md and _config/security_shield.md
@@ -75,3 +75,47 @@ export const productSlugSchema = z.object({
   slug: slugSchema,
 });
 export type ProductSlugParam = z.infer<typeof productSlugSchema>;
+
+// ===========================================================================
+// Slice 2 — cart mutations
+// ===========================================================================
+// Cart writes cross a trust boundary, so — unlike the LENIENT Slice-1 read queries — these are
+// STRICT: an invalid variant id or quantity REJECTS with a typed error, never silently degrades.
+// The same schema validates the client form (UX) and re-validates in the Server Action before any
+// write (security_shield flaw #3). Price is NEVER an input — the server recomputes line and cart
+// totals from the variant (glossary), so the client cannot influence money. Mutations key a line
+// by its VARIANT (not a DB row id) so the identical contract serves both the signed-in DB cart and
+// the guest httpOnly-cookie cart.
+
+/** Soft cap on quantity per cart line (mirrored by the cart_items CHECK constraint). */
+export const MAX_CART_ITEM_QUANTITY = 99;
+
+/** A variant identifier (uuid). */
+export const variantIdSchema = z.uuid("Invalid variant.");
+
+/** Quantity for one cart line: whole number in [1, MAX]. Coerced from FormData strings. */
+export const cartQuantitySchema = z.coerce
+  .number()
+  .int("Quantity must be a whole number.")
+  .min(1, "Quantity must be at least 1.")
+  .max(MAX_CART_ITEM_QUANTITY, `Quantity can be at most ${MAX_CART_ITEM_QUANTITY}.`);
+
+/** Add a variant to the cart (or increment its existing line). Quantity defaults to 1. */
+export const addCartItemSchema = z.object({
+  variantId: variantIdSchema,
+  quantity: cartQuantitySchema.default(1),
+});
+export type AddCartItemInput = z.infer<typeof addCartItemSchema>;
+
+/** Set the absolute quantity of an existing cart line. (Removal is a separate action.) */
+export const updateCartItemSchema = z.object({
+  variantId: variantIdSchema,
+  quantity: cartQuantitySchema,
+});
+export type UpdateCartItemInput = z.infer<typeof updateCartItemSchema>;
+
+/** Remove a line from the cart entirely. */
+export const removeCartItemSchema = z.object({
+  variantId: variantIdSchema,
+});
+export type RemoveCartItemInput = z.infer<typeof removeCartItemSchema>;

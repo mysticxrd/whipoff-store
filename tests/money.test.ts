@@ -1,5 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { formatPrice, formatPriceFrom, formatPriceRange } from "@/lib/money";
+import {
+  computeShippingMinor,
+  formatPrice,
+  formatPriceFrom,
+  formatPriceRange,
+  FREE_SHIP_THRESHOLD_MINOR,
+  FLAT_SHIP_FEE_MINOR,
+} from "@/lib/money";
 
 describe("formatPrice (INR, en-IN)", () => {
   it("formats whole amounts without decimals", () => {
@@ -30,5 +37,17 @@ describe("formatPriceRange", () => {
 
   it("renders a span when min !== max", () => {
     expect(formatPriceRange(44900, 129900, "INR")).toBe("₹449 – ₹1,299");
+  });
+});
+
+describe("computeShippingMinor (Slice 2 — single-sourced free-ship threshold)", () => {
+  it("charges the flat fee below the threshold", () => {
+    expect(computeShippingMinor(0)).toBe(FLAT_SHIP_FEE_MINOR);
+    expect(computeShippingMinor(FREE_SHIP_THRESHOLD_MINOR - 1)).toBe(FLAT_SHIP_FEE_MINOR);
+  });
+
+  it("waives shipping at or above the threshold", () => {
+    expect(computeShippingMinor(FREE_SHIP_THRESHOLD_MINOR)).toBe(0);
+    expect(computeShippingMinor(FREE_SHIP_THRESHOLD_MINOR + 1)).toBe(0);
   });
 });
