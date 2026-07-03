@@ -1,10 +1,10 @@
-// Zod contracts — Slice 0 (auth + profile) + Slice 1 (catalog reads) + Slice 2 (cart mutations).
+// Zod contracts — Slice 0 (auth + profile) + Slice 1 (catalog reads) + Slice 2 (cart mutations)
+// + Slice 3 (checkout + payments boundaries).
 //
 // SINGLE SOURCE OF TRUTH for input validation, shared by client (UX) and server
-// (re-validation). See ../../shared/api_conventions.md and _config/security_shield.md
-// flaw #3: the server MUST re-parse with these schemas before any side effect / query —
-// client validation is UX only. Derive TS types via z.infer; never declare a parallel
-// interface. Mirrors stages/01_data/output/contracts.ts.
+// (re-validation). See shared/api_conventions.md and _config/security_shield.md flaw #3:
+// the server MUST re-parse with these schemas before any side effect / query — client
+// validation is UX only. Derive TS types via z.infer; never declare a parallel interface.
 
 import { z } from "zod";
 
@@ -119,3 +119,59 @@ export const removeCartItemSchema = z.object({
   variantId: variantIdSchema,
 });
 export type RemoveCartItemInput = z.infer<typeof removeCartItemSchema>;
+
+// ===========================================================================
+// Slice 3 — checkout + payments boundaries
+// ===========================================================================
+// Checkout money is NEVER a client input: `createCheckoutSession` deliberately takes NO
+// arguments — the cart is read server-side and every amount is recomputed from variants
+// (payments.md: "never trust client-sent prices"), so it needs no input schema at all.
+// What DOES cross a trust boundary, and is therefore parsed strictly server-side:
+//  - the return-page search param (Stripe substitutes {CHECKOUT_SESSION_ID} into our URL,
+//    but the param arrives from the shopper's browser);
+//  - the cart-clear action input (same session id, sent by the return page's client leaf);
+//  - session metadata, which round-trips THROUGH Stripe and back in webhook events —
+//    treated as untrusted on re-entry and re-parsed before any use.
+
+/** Order lifecycle (mirrors the public.order_status enum / domain glossary). */
+export const orderStatusSchema = z.enum([
+  "pending",
+  "paid",
+  "fulfilled",
+  "refunded",
+  "cancelled",
+]);
+export type OrderStatusValue = z.infer<typeof orderStatusSchema>;
+
+/** A Stripe Checkout Session id. STRICT shape; length-capped defensively. */
+export const checkoutSessionIdSchema = z
+  .string()
+  .max(200, "Invalid checkout session.")
+  .regex(/^cs_(test|live)_[A-Za-z0-9]+$/, "Invalid checkout session.");
+
+/** /checkout/return search params. Strict: an invalid session id is treated as not-found. */
+export const checkoutReturnQuerySchema = z.object({
+  session_id: checkoutSessionIdSchema,
+});
+export type CheckoutReturnQuery = z.infer<typeof checkoutReturnQuerySchema>;
+
+/** Input for the post-payment cart-clear Server Action (fired by the return page). */
+export const clearCartAfterCheckoutSchema = z.object({
+  sessionId: checkoutSessionIdSchema,
+});
+export type ClearCartAfterCheckoutInput = z.infer<typeof clearCartAfterCheckoutSchema>;
+
+/**
+ * Checkout Session metadata we attach at session creation for reconciliation
+ * (payments.md: "the session carries metadata (cart/user ids)"). It round-trips through
+ * Stripe and re-enters via webhook events, so the webhook RE-PARSES it with this schema
+ * before any write (flaw #3). `'guest'` marks the cookie-cart / signed-out path.
+ * `cart_subtotal_minor` is a reconciliation cross-check against Stripe's amount_subtotal —
+ * Stripe stays the money-truth; a mismatch is flagged to monitoring, never “corrected”.
+ */
+export const checkoutSessionMetadataSchema = z.object({
+  user_id: z.uuid().or(z.literal("guest")),
+  cart_id: z.uuid().or(z.literal("guest")),
+  cart_subtotal_minor: z.coerce.number().int().nonnegative(),
+});
+export type CheckoutSessionMetadata = z.infer<typeof checkoutSessionMetadataSchema>;

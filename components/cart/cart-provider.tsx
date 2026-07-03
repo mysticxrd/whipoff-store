@@ -28,6 +28,8 @@ type CartContextValue = {
   addItem: (variantId: string, quantity: number) => Promise<ActionResult<CartView>>;
   updateQuantity: (variantId: string, quantity: number) => Promise<ActionResult<CartView>>;
   removeItem: (variantId: string) => Promise<ActionResult<CartView>>;
+  /** Replace the whole client cart with a server-recomputed view (post-checkout clear). */
+  replaceCart: (cart: CartView) => void;
 };
 
 const CartContext = createContext<CartContextValue | null>(null);
@@ -54,6 +56,10 @@ export function CartProvider({
     setIsOpen(false);
     openerRef.current?.focus?.();
     openerRef.current = null;
+  }, []);
+
+  const replaceCart = useCallback((next: CartView) => {
+    setCart(next);
   }, []);
 
   const addItem = useCallback(async (variantId: string, quantity: number) => {
@@ -128,7 +134,7 @@ export function CartProvider({
 
   return (
     <CartContext.Provider
-      value={{ cart, isOpen, open, close, addItem, updateQuantity, removeItem }}
+      value={{ cart, isOpen, open, close, addItem, updateQuantity, removeItem, replaceCart }}
     >
       {children}
     </CartContext.Provider>

@@ -51,6 +51,15 @@ type CartLineEventProps = {
   cart_value_minor: number;
 };
 
+// checkout_started fires client-side at checkout entry (funnel edge); the authoritative
+// payment_succeeded / order_completed events are SERVER-side (lib/analytics-server.ts,
+// fired by the webhook) so revenue never depends on the shopper's ad-blocker.
+type CheckoutStartedProps = {
+  cart_value_minor: number;
+  currency: string;
+  item_count: number;
+};
+
 export const analytics = {
   productListViewed(props: ListViewedProps): void {
     capture("product_list_viewed", props);
@@ -72,5 +81,8 @@ export const analytics = {
   },
   cartItemRemoved(props: CartLineEventProps): void {
     capture("cart_item_removed", props);
+  },
+  checkoutStarted(props: CheckoutStartedProps): void {
+    capture("checkout_started", props);
   },
 };

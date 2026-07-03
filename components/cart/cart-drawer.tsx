@@ -141,15 +141,13 @@ export function CartDrawer() {
                   <dd>{formatPrice(cart.totalMinor, cart.currency)}</dd>
                 </div>
               </dl>
-              <button
-                type="button"
-                disabled
-                aria-disabled="true"
-                title="Checkout is coming in the next update"
+              <Link
+                href="/checkout"
+                onClick={close}
                 className={cn(buttonVariants({ size: "lg" }), "mt-4 w-full")}
               >
                 Checkout →
-              </button>
+              </Link>
             </div>
           </>
         ) : (

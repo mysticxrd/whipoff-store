@@ -1,14 +1,15 @@
-// Supabase database types — Slice 0 (profiles) + Slice 1 (catalog).
+// Supabase database types — Slice 0 (profiles) + Slice 1 (catalog) + Slice 2 (cart)
+// + Slice 3 (orders / payments).
 //
 // ⚠️ PLACEHOLDER — hand-authored, intentional deviation (recorded in 03_verify).
-// _config/data_conventions.md requires GENERATED types, but typegen needs a live
-// Supabase project, which does not exist yet (local-first). This mirrors the migrations
-// exactly so swapping is seamless. REGENERATE at cloud-wiring time:
+// `_config/data_conventions.md` requires generated types, but typegen needs a live
+// Supabase project, which does not exist yet (local-first). This file mirrors
+// migration.sql exactly so swapping is seamless. REGENERATE at cloud-wiring time:
 //
 //   supabase gen types typescript --project-id <PROJECT_ID> --schema public \
-//     > supabase/types.ts
+//     > store/supabase/types.ts
 //
-// Mirrors stages/01_data/output/types.ts.
+// Until then, treat this as the source of truth for DB row shapes.
 
 export type Json =
   | string
@@ -296,11 +297,181 @@ export type Database = {
           },
         ];
       };
+      orders: {
+        Row: {
+          id: string;
+          user_id: string | null;
+          email: string;
+          status: Database["public"]["Enums"]["order_status"];
+          currency: string;
+          amount_subtotal_minor: number;
+          amount_shipping_minor: number;
+          amount_tax_minor: number;
+          amount_total_minor: number;
+          stripe_checkout_session_id: string;
+          stripe_payment_intent_id: string | null;
+          shipping_name: string | null;
+          shipping_address: Json | null;
+          paid_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id?: string | null;
+          email: string;
+          status?: Database["public"]["Enums"]["order_status"];
+          currency?: string;
+          amount_subtotal_minor: number;
+          amount_shipping_minor?: number;
+          amount_tax_minor?: number;
+          amount_total_minor: number;
+          stripe_checkout_session_id: string;
+          stripe_payment_intent_id?: string | null;
+          shipping_name?: string | null;
+          shipping_address?: Json | null;
+          paid_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string | null;
+          email?: string;
+          status?: Database["public"]["Enums"]["order_status"];
+          currency?: string;
+          amount_subtotal_minor?: number;
+          amount_shipping_minor?: number;
+          amount_tax_minor?: number;
+          amount_total_minor?: number;
+          stripe_checkout_session_id?: string;
+          stripe_payment_intent_id?: string | null;
+          shipping_name?: string | null;
+          shipping_address?: Json | null;
+          paid_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "orders_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      order_items: {
+        Row: {
+          id: string;
+          order_id: string;
+          variant_id: string | null;
+          product_title: string;
+          variant_title: string;
+          sku: string | null;
+          unit_price_minor: number;
+          quantity: number;
+          line_total_minor: number;
+          currency: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          order_id: string;
+          variant_id?: string | null;
+          product_title: string;
+          variant_title: string;
+          sku?: string | null;
+          unit_price_minor: number;
+          quantity: number;
+          line_total_minor: number;
+          currency?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          order_id?: string;
+          variant_id?: string | null;
+          product_title?: string;
+          variant_title?: string;
+          sku?: string | null;
+          unit_price_minor?: number;
+          quantity?: number;
+          line_total_minor?: number;
+          currency?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "order_items_order_id_fkey";
+            columns: ["order_id"];
+            isOneToOne: false;
+            referencedRelation: "orders";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "order_items_variant_id_fkey";
+            columns: ["variant_id"];
+            isOneToOne: false;
+            referencedRelation: "variants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      stripe_events: {
+        Row: {
+          id: string;
+          type: string;
+          processed_at: string;
+        };
+        Insert: {
+          id: string;
+          type: string;
+          processed_at?: string;
+        };
+        Update: {
+          id?: string;
+          type?: string;
+          processed_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<never, never>;
-    Functions: Record<never, never>;
+    Functions: {
+      record_stripe_order: {
+        Args: {
+          p_event_id: string;
+          p_event_type: string;
+          p_order: Json;
+          p_items: Json;
+          p_cart_id?: string | null;
+        };
+        Returns: string;
+      };
+      finalize_stripe_order: {
+        Args: {
+          p_event_id: string;
+          p_event_type: string;
+          p_session_id: string;
+          p_paid: boolean;
+          p_payment_intent_id?: string | null;
+          p_cart_id?: string | null;
+        };
+        Returns: string;
+      };
+      apply_paid_order_effects: {
+        Args: {
+          p_order_id: string;
+          p_cart_id?: string | null;
+        };
+        Returns: undefined;
+      };
+    };
     Enums: {
       product_status: "draft" | "active" | "archived";
+      order_status: "pending" | "paid" | "fulfilled" | "refunded" | "cancelled";
     };
     CompositeTypes: Record<never, never>;
   };
@@ -322,3 +493,8 @@ export type CartInsert = Database["public"]["Tables"]["carts"]["Insert"];
 export type CartItem = Database["public"]["Tables"]["cart_items"]["Row"];
 export type CartItemInsert = Database["public"]["Tables"]["cart_items"]["Insert"];
 export type CartItemUpdate = Database["public"]["Tables"]["cart_items"]["Update"];
+
+export type Order = Database["public"]["Tables"]["orders"]["Row"];
+export type OrderItem = Database["public"]["Tables"]["order_items"]["Row"];
+export type StripeEventRow = Database["public"]["Tables"]["stripe_events"]["Row"];
+export type OrderStatus = Database["public"]["Enums"]["order_status"];

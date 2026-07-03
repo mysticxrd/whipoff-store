@@ -206,6 +206,48 @@ export async function removeLine(input: RemoveCartItemInput): Promise<ActionResu
   return ok(await getCart());
 }
 
+/** Who owns the current cart — feeds checkout-session metadata (lib/checkout/service.ts). */
+export type CartOwner = {
+  userId: string | null; // null = guest
+  email: string | null;
+  cartId: string | null; // DB cart id; null for guests (cookie cart) or when no cart row exists
+};
+
+export async function getCartOwner(): Promise<CartOwner> {
+  const user = await getCurrentUser();
+  if (!user) return { userId: null, email: null, cartId: null };
+  try {
+    const supabase = await createClient();
+    return {
+      userId: user.id,
+      email: user.email ?? null,
+      cartId: await getUserCartId(supabase, user.id),
+    };
+  } catch {
+    return { userId: user.id, email: user.email ?? null, cartId: null };
+  }
+}
+
+/**
+ * Empty the CALLER's cart — guest cookie and (when signed in) own DB cart, via the anon
+ * client so RLS still scopes the delete. Used by the post-payment return surface: the
+ * webhook already clears the DB cart via RPC, but it cannot touch the guest cookie (no
+ * request cookies in a webhook), and a double clear of the DB cart is a harmless no-op.
+ */
+export async function clearOwnCart(): Promise<void> {
+  const user = await getCurrentUser();
+  if (user) {
+    try {
+      const supabase = await createClient();
+      const cartId = await getUserCartId(supabase, user.id);
+      if (cartId) await supabase.from("cart_items").delete().eq("cart_id", cartId);
+    } catch {
+      // Best-effort: the webhook's RPC clear is the authoritative one for DB carts.
+    }
+  }
+  await clearGuestCart();
+}
+
 /**
  * Merge the guest cookie cart into the just-signed-in user's DB cart (quantities SUMMED per
  * variant, clamped to the per-line cap), then clear the cookie. Called ONLY from the auth
