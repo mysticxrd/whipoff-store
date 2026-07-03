@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { signInSchema } from "@/lib/contracts";
+import { safeReturnTo, signInSchema } from "@/lib/contracts";
 import { clientEnv } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -26,13 +26,18 @@ export async function signIn(
     });
   }
 
+  // Preserve the post-sign-in destination the middleware captured when it bounced a guest off a
+  // protected page (?redirectTo). Validated here with the shared open-redirect guard, then
+  // RE-validated in /auth/callback (defense-in-depth): same-origin paths only, else /account.
+  const redirectTo = safeReturnTo(formData.get("redirectTo"));
+
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithOtp({
     email: parsed.data.email,
     // Routes through /auth/callback (Slice 2) so the PKCE code exchange runs server-side AND the
-    // guest cart gets one guaranteed chance to merge into the signed-in cart before /account loads.
+    // guest cart merge + guest-order claim (Slice 4) get one guaranteed hook before /account loads.
     options: {
-      emailRedirectTo: `${clientEnv.NEXT_PUBLIC_APP_URL}/auth/callback?redirectTo=/account`,
+      emailRedirectTo: `${clientEnv.NEXT_PUBLIC_APP_URL}/auth/callback?redirectTo=${encodeURIComponent(redirectTo)}`,
     },
   });
   if (error) {

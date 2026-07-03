@@ -1,5 +1,5 @@
 // Zod contracts — Slice 0 (auth + profile) + Slice 1 (catalog reads) + Slice 2 (cart mutations)
-// + Slice 3 (checkout + payments boundaries).
+// + Slice 3 (checkout + payments boundaries) + Slice 4 (account + order history + guest claim).
 //
 // SINGLE SOURCE OF TRUTH for input validation, shared by client (UX) and server
 // (re-validation). See shared/api_conventions.md and _config/security_shield.md flaw #3:
@@ -175,3 +175,118 @@ export const checkoutSessionMetadataSchema = z.object({
   cart_subtotal_minor: z.coerce.number().int().nonnegative(),
 });
 export type CheckoutSessionMetadata = z.infer<typeof checkoutSessionMetadataSchema>;
+
+// ===========================================================================
+// Slice 4 — account + order history + guest claim boundaries
+// ===========================================================================
+// The account read side crosses several trust boundaries; each is parsed server-side before use
+// (security_shield flaw #3). Note what is DELIBERATELY NOT here:
+//  - The guest-claim has NO input contract BY DESIGN. claim_guest_orders() is parameterless; its
+//    only "input" is the verified session JWT (auth.email()), which the client cannot forge. There
+//    is nothing to validate because there is nothing the client supplies — that IS the security
+//    property (PRD Gate-1 #2: "authenticating is proof of mailbox control").
+//  - Order money/status are READ, never written from the client, so no write schema exists.
+// The pure helpers below (normalizeEmail, formatOrderNumber, parseOrderSeq, isSafeReturnTo /
+// safeReturnTo) are the offline-unit-testable "pure logic" the 03_verify mock posture leans on
+// (PRD Gate-1 #5).
+
+/**
+ * Canonical email normalization — lowercase + trim. ALIGNED with the SQL claim matcher
+ * `lower(btrim(email, <ASCII whitespace>))` in migration.sql for the ASCII-clean inputs we
+ * accept (Stripe / GoTrue emails): both strip the full ASCII whitespace set and lowercase.
+ * Accepted residual (03_verify Finding 2): JS trim() also strips Unicode whitespace, and
+ * toLowerCase() can diverge from Postgres lower() on locale glyphs — unreachable with
+ * provider-issued emails. Pure + unit-testable.
+ */
+export function normalizeEmail(raw: string): string {
+  return raw.trim().toLowerCase();
+}
+
+/** Display prefix for the human-readable order number. */
+export const ORDER_NUMBER_PREFIX = "WO-";
+
+/**
+ * Human-readable order number, e.g. `WO-000123`. Zero-padded to ≥6 digits; overflow past
+ * 999999 simply widens (WO-1000000). Case-normalized on parse for tolerant URL/entry handling.
+ * DISPLAY-ONLY — never an access/authorization token; RLS gates ownership, not this string
+ * (PRD Gate-1 #3). Used as the public route key for /account/orders/[orderNumber].
+ */
+export const orderNumberSchema = z
+  .string()
+  .trim()
+  .toUpperCase()
+  .regex(/^WO-\d{6,}$/, "Invalid order number.");
+export type OrderNumber = z.infer<typeof orderNumberSchema>;
+
+/** Format a positive order_seq into its WO-###### display string. Pure + unit-testable. */
+export function formatOrderNumber(seq: number): string {
+  if (!Number.isInteger(seq) || seq < 1) {
+    throw new Error("order_seq must be a positive integer");
+  }
+  return `${ORDER_NUMBER_PREFIX}${String(seq).padStart(6, "0")}`;
+}
+
+/**
+ * Parse a WO-###### string back to its numeric order_seq (for the RLS-gated lookup on
+ * orders.order_seq). Returns null when the shape is invalid → the detail page soft-404s.
+ * The number is NOT an authz token: a valid-but-not-owned seq still yields no row under RLS.
+ */
+export function parseOrderSeq(orderNumber: string): number | null {
+  const parsed = orderNumberSchema.safeParse(orderNumber);
+  if (!parsed.success) return null;
+  return Number(parsed.data.slice(ORDER_NUMBER_PREFIX.length));
+}
+
+/** /account/orders/[orderNumber] route param. Strict: a malformed number is treated as not-found. */
+export const accountOrderParamSchema = z.object({
+  orderNumber: orderNumberSchema,
+});
+export type AccountOrderParam = z.infer<typeof accountOrderParamSchema>;
+
+/**
+ * Open-redirect-safe return-to target (security_shield flaw #3 for the auth flow). A safe target
+ * is a SAME-ORIGIN absolute path only: it must start with a single "/", and must NOT be
+ * protocol-relative ("//host"), backslash-tricked ("/\\host"), or contain control/whitespace
+ * chars a browser might normalize into a scheme+host. Anything else is rejected and callers fall
+ * back to DEFAULT_RETURN_TO. Pure + unit-testable.
+ */
+export const DEFAULT_RETURN_TO = "/account";
+
+export function isSafeReturnTo(value: string): boolean {
+  if (typeof value !== "string" || value.length === 0) return false;
+  if (!value.startsWith("/")) return false; // must be an absolute path on our origin
+  if (value.startsWith("//") || value.startsWith("/\\")) return false; // protocol-relative / backslash
+  // Reject ASCII control chars (charCode <= 0x1F, or 0x7F DEL) — a numeric check, so no literal
+  // control byte ever appears in this source. Ordinary path chars like "-" stay valid (/sign-in).
+  for (let i = 0; i < value.length; i++) {
+    const c = value.charCodeAt(i);
+    if (c <= 0x1f || c === 0x7f) return false;
+  }
+  // Reject any whitespace a browser might trim/normalize into a scheme+host.
+  if (/\s/.test(value)) return false;
+  return true;
+}
+
+export const returnToSchema = z
+  .string()
+  .trim()
+  .refine(isSafeReturnTo, "Unsafe redirect target.");
+
+/** Coerce any raw return-to (query param, form field) to a safe path, defaulting when unsafe. */
+export function safeReturnTo(raw: unknown): string {
+  const parsed = returnToSchema.safeParse(raw);
+  return parsed.success ? parsed.data : DEFAULT_RETURN_TO;
+}
+
+/**
+ * Auth callback params (the machine route /auth/callback that completes magic-link sign-in).
+ * @supabase/ssr uses the PKCE flow exclusively: Supabase presents a `code` and the callback
+ * exchanges it server-side (exchangeCodeForSession). There is no `token_hash`/OTP branch —
+ * the callback implements only this shape. `redirectTo` is the post-verify destination and is
+ * NEVER trusted raw — route it through safeReturnTo() before redirecting (open-redirect guard).
+ */
+export const authCallbackSchema = z.object({
+  code: z.string().min(1).max(512),
+  redirectTo: z.string().optional(),
+});
+export type AuthCallbackParams = z.infer<typeof authCallbackSchema>;

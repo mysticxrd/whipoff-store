@@ -1,10 +1,11 @@
 // Supabase database types — Slice 0 (profiles) + Slice 1 (catalog) + Slice 2 (cart)
-// + Slice 3 (orders / payments).
+// + Slice 3 (orders / payments) + Slice 4 (account: order_seq + claim_guest_orders).
 //
 // ⚠️ PLACEHOLDER — hand-authored, intentional deviation (recorded in 03_verify).
 // `_config/data_conventions.md` requires generated types, but typegen needs a live
-// Supabase project, which does not exist yet (local-first). This file mirrors
-// migration.sql exactly so swapping is seamless. REGENERATE at cloud-wiring time:
+// Supabase project, which does not exist yet (PRD Slice-4 Gate-1 #5: mock + cloud-runbook
+// defer — no Docker/local stack this box). This file mirrors migration.sql exactly so
+// swapping is seamless. REGENERATE at cloud-wiring time (04_ship):
 //
 //   supabase gen types typescript --project-id <PROJECT_ID> --schema public \
 //     > store/supabase/types.ts
@@ -312,6 +313,7 @@ export type Database = {
           stripe_payment_intent_id: string | null;
           shipping_name: string | null;
           shipping_address: Json | null;
+          order_seq: number;
           paid_at: string | null;
           created_at: string;
           updated_at: string;
@@ -330,6 +332,7 @@ export type Database = {
           stripe_payment_intent_id?: string | null;
           shipping_name?: string | null;
           shipping_address?: Json | null;
+          order_seq?: number;
           paid_at?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -348,6 +351,7 @@ export type Database = {
           stripe_payment_intent_id?: string | null;
           shipping_name?: string | null;
           shipping_address?: Json | null;
+          order_seq?: number;
           paid_at?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -467,6 +471,12 @@ export type Database = {
           p_cart_id?: string | null;
         };
         Returns: undefined;
+      };
+      // Slice 4 — guest-claim. Parameterless BY DESIGN: the match key is the verified JWT email
+      // (auth.email()), never a client argument. Returns the count of orders newly attached.
+      claim_guest_orders: {
+        Args: Record<PropertyKey, never>;
+        Returns: number;
       };
     };
     Enums: {

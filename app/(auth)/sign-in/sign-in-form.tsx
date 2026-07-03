@@ -17,7 +17,7 @@ function SubmitButton() {
   );
 }
 
-export function SignInForm() {
+export function SignInForm({ redirectTo }: { redirectTo: string }) {
   const [state, formAction] = useActionState<ActionResult | null, FormData>(
     signIn,
     null,
@@ -27,6 +27,8 @@ export function SignInForm() {
 
   return (
     <form action={formAction} className="flex flex-col gap-4" noValidate>
+      {/* Carried through the magic-link round-trip; re-sanitized server-side (open-redirect guard). */}
+      <input type="hidden" name="redirectTo" value={redirectTo} />
       <div className="flex flex-col gap-2">
         <Label htmlFor="email">Email</Label>
         <Input

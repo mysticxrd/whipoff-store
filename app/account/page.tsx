@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -8,6 +9,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { ProfileForm } from "./profile-form";
 import { SignOutButton } from "./sign-out-button";
 
@@ -45,6 +48,20 @@ export default async function AccountPage() {
           </CardHeader>
           <CardContent>
             <ProfileForm defaultDisplayName={profile?.display_name ?? ""} />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Orders</CardTitle>
+            <CardDescription>Track and review your past orders.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link
+              href="/account/orders"
+              className={cn(buttonVariants({ variant: "outline" }), "w-full")}
+            >
+              View order history
+            </Link>
           </CardContent>
         </Card>
       </div>
