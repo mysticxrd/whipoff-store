@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { captureServerEvent } from "@/lib/analytics-server";
 import { checkoutSessionMetadataSchema } from "@/lib/contracts";
 import { mapSessionToOrderPayload } from "@/lib/checkout/pure";
+import { sendOrderConfirmationForSession } from "@/server/email/order-confirmation";
 import type { Json } from "@/supabase/types";
 
 // Stripe webhook — THE writer of order state (payments.md). Everything else about orders is
@@ -22,6 +23,10 @@ import type { Json } from "@/supabase/types";
 //    order row actually landed ('inserted'/'finalized') — never off the return URL.
 //  - Writes go through the service-role client (bypasses RLS by design; this file is its
 //    only importer).
+//  - Slice 5: the confirmation email is a POST-COMMIT side-effect gated on the order's own
+//    send marker, attempted on EVERY session event (including 'duplicate_*' redeliveries) so a
+//    crash-during-email heals on retry instead of riding the event ledger — and it can NEVER
+//    throw into this handler (order durability is independent of email outcome).
 
 export const runtime = "nodejs";
 
@@ -131,6 +136,12 @@ async function handleSessionCompleted(
     await triggerFulfilment(session.id, mapped.order.email);
   }
 
+  // Slice 5 — confirmation email, AFTER the order commit (email.md send-after-commit). Called on
+  // every outcome ('inserted' AND 'duplicate_*'): the send is gated on the order's OWN marker,
+  // not this event's ledger claim, so a redelivery after a crash-during-email recovers the
+  // receipt (01_data prefer-delivery model). Not-paid / missing orders no-op inside. Never throws.
+  await sendOrderConfirmationForSession(admin, session.id);
+
   return NextResponse.json({ received: true, result: outcome });
 }
 
@@ -177,6 +188,9 @@ async function handleAsyncFinalize(
         `finalize arrived before checkout.session.completed for ${session.id} — retry`,
       );
     }
+    // Slice 5 — already-transitioned redelivery: still attempt the marker-gated send so a
+    // crash-during-email on the ORIGINAL finalize is healed by this retry. No-ops when sent.
+    await sendOrderConfirmationForSession(admin, session.id);
     return NextResponse.json({ received: true, result: "already_finalized" });
   }
 
@@ -184,6 +198,10 @@ async function handleAsyncFinalize(
     await emitPaidOrderEvents(session, userId);
     await triggerFulfilment(session.id, session.customer_details?.email ?? "unknown");
   }
+
+  // Slice 5 — post-commit confirmation email (marker-gated, self-skips unless status='paid',
+  // so the async_payment_failed path falls through harmlessly). Never throws.
+  await sendOrderConfirmationForSession(admin, session.id);
 
   return NextResponse.json({ received: true, result: outcome });
 }
@@ -204,9 +222,9 @@ async function emitPaidOrderEvents(
 }
 
 /**
- * Slice-5 hook point: fulfilment + confirmation email (Resend) attach HERE — after
- * entitlement is proven and the order row exists — never on the return URL. Deliberately a
- * structured log until then (Gate-1 locked decision: no email this slice).
+ * Fulfilment hook — still a structured log: fulfilment tooling (and its shipping email) has no
+ * operator trigger yet (PRD Slice-5 scope OUT). The confirmation email no longer rides this —
+ * it is sent via sendOrderConfirmationForSession above, gated on the order's send marker.
  */
 async function triggerFulfilment(sessionId: string, email: string): Promise<void> {
   console.log(

@@ -1,5 +1,6 @@
 // Supabase database types — Slice 0 (profiles) + Slice 1 (catalog) + Slice 2 (cart)
-// + Slice 3 (orders / payments) + Slice 4 (account: order_seq + claim_guest_orders).
+// + Slice 3 (orders / payments) + Slice 4 (account: order_seq + claim_guest_orders)
+// + Slice 5 (orders.confirmation_email_sent_at + mark_order_confirmation_email_sent).
 //
 // ⚠️ PLACEHOLDER — hand-authored, intentional deviation (recorded in 03_verify).
 // `_config/data_conventions.md` requires generated types, but typegen needs a live
@@ -315,6 +316,7 @@ export type Database = {
           shipping_address: Json | null;
           order_seq: number;
           paid_at: string | null;
+          confirmation_email_sent_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -334,6 +336,7 @@ export type Database = {
           shipping_address?: Json | null;
           order_seq?: number;
           paid_at?: string | null;
+          confirmation_email_sent_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -353,6 +356,7 @@ export type Database = {
           shipping_address?: Json | null;
           order_seq?: number;
           paid_at?: string | null;
+          confirmation_email_sent_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -477,6 +481,16 @@ export type Database = {
       claim_guest_orders: {
         Args: Record<PropertyKey, never>;
         Returns: number;
+      };
+      // Slice 5 — order-confirmation email idempotency marker setter. Service-role ONLY
+      // (EXECUTE revoked from client roles). Atomically sets orders.confirmation_email_sent_at
+      // where still NULL; returns true iff THIS call claimed the send (the webhook's
+      // prefer-delivery send-then-mark step).
+      mark_order_confirmation_email_sent: {
+        Args: {
+          p_order_id: string;
+        };
+        Returns: boolean;
       };
     };
     Enums: {

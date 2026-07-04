@@ -1,5 +1,6 @@
 // Zod contracts — Slice 0 (auth + profile) + Slice 1 (catalog reads) + Slice 2 (cart mutations)
-// + Slice 3 (checkout + payments boundaries) + Slice 4 (account + order history + guest claim).
+// + Slice 3 (checkout + payments boundaries) + Slice 4 (account + order history + guest claim)
+// + Slice 5 (order-confirmation email receipt shape).
 //
 // SINGLE SOURCE OF TRUTH for input validation, shared by client (UX) and server
 // (re-validation). See shared/api_conventions.md and _config/security_shield.md flaw #3:
@@ -290,3 +291,80 @@ export const authCallbackSchema = z.object({
   redirectTo: z.string().optional(),
 });
 export type AuthCallbackParams = z.infer<typeof authCallbackSchema>;
+
+// ===========================================================================
+// Slice 5 — order-confirmation email (Resend)
+// ===========================================================================
+// The Stripe webhook is the ONLY trigger for this email, and it is ALREADY signature-verified with
+// its metadata re-parsed server-side (Slice 3, checkoutSessionMetadataSchema) — so Slice 5 introduces
+// NO new CLIENT trust boundary and therefore no new client-input schema. What IS defined here is the
+// INTERNAL receipt contract: the shape the webhook composes (from trusted, service-role-read
+// orders + order_items rows) and hands to the Resend template. It is the single source of truth for
+// the template's props and is parsed defensively before send, so a malformed receipt fails LOUDLY
+// server-side (a genuine composition bug) instead of emailing a broken one. Money stays integer minor
+// units + currency; totals are READ from the persisted order — NEVER re-derived here (PRD reuse rule).
+// Display formatting reuses the existing money helper + formatOrderNumber (above); no amount is recomputed.
+// The prefer-delivery posture (PRD Gate-1 #5) lives at the SEND step, not here — the only field made
+// tolerant is the display-only shippingAddress (a Stripe-shaped blob), which degrades to "no address
+// shown" rather than blocking the receipt.
+
+/** Minor-unit money amount (integer, non-negative) — mirrors the orders / order_items columns. */
+const minorAmountSchema = z.number().int().nonnegative();
+
+/**
+ * One receipt line — a snapshot of an order_items row (immutable at purchase time). Denormalized
+ * titles / sku travel with the receipt so it survives later catalog edits (glossary: Order line item).
+ */
+export const orderConfirmationLineSchema = z.object({
+  productTitle: z.string().min(1),
+  variantTitle: z.string().min(1),
+  sku: z.string().nullable(),
+  unitPriceMinor: minorAmountSchema,
+  quantity: z.number().int().min(1),
+  lineTotalMinor: minorAmountSchema,
+});
+export type OrderConfirmationLine = z.infer<typeof orderConfirmationLineSchema>;
+
+/**
+ * Shipping-address snapshot: the Stripe address object captured on the order (Slice 3, orders.shipping_address
+ * jsonb). Every field is optional/nullish so a partial address still renders, and the WHOLE thing
+ * `.catch(null)`s to "no address shown" rather than throwing — a display-only detail must never BLOCK
+ * the receipt (PRD Gate-1 #5 prefer-delivery). Unknown Stripe keys are stripped.
+ */
+export const shippingAddressSnapshotSchema = z
+  .object({
+    line1: z.string().nullish(),
+    line2: z.string().nullish(),
+    city: z.string().nullish(),
+    state: z.string().nullish(),
+    postal_code: z.string().nullish(),
+    country: z.string().nullish(),
+  })
+  .nullable()
+  .catch(null);
+export type ShippingAddressSnapshot = z.infer<typeof shippingAddressSnapshotSchema>;
+
+/**
+ * The full order-confirmation receipt handed to the Resend template. Composed server-side from the
+ * persisted order + its item snapshots (NEVER the client). `orderNumber` is the display WO-######
+ * (formatOrderNumber); `recipientEmail` is the captured orders.email; `isGuest` (order.user_id was
+ * NULL at purchase) selects the CTA — a guest is invited to sign in WITH THIS EMAIL to track the order
+ * (ties to the Slice-4 verified claim), an authenticated buyer gets a link to /account/orders. There
+ * is deliberately NO order-detail deep link for guests (that would bypass Slice-4 auth/RLS). Amounts
+ * mirror the orders row (subtotal / shipping / tax / total) in integer minor units + currency.
+ */
+export const orderConfirmationEmailSchema = z.object({
+  orderNumber: orderNumberSchema,
+  recipientEmail: z.email(),
+  currency: z.string().length(3),
+  placedAt: z.string().min(1), // ISO timestamp — paid_at, falling back to created_at
+  isGuest: z.boolean(),
+  lines: z.array(orderConfirmationLineSchema).min(1),
+  amountSubtotalMinor: minorAmountSchema,
+  amountShippingMinor: minorAmountSchema,
+  amountTaxMinor: minorAmountSchema,
+  amountTotalMinor: minorAmountSchema,
+  shippingName: z.string().nullable(),
+  shippingAddress: shippingAddressSnapshotSchema,
+});
+export type OrderConfirmationEmail = z.infer<typeof orderConfirmationEmailSchema>;
