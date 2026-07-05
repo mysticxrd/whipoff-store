@@ -7,6 +7,7 @@ import {
 } from "@/lib/contracts";
 import { createEmbeddedCheckoutSession } from "@/lib/checkout/service";
 import { clearOwnCart, getCart, type CartView } from "@/lib/cart/service";
+import { deriveOrderStatus } from "@/lib/checkout/pure";
 import { getStripe } from "@/lib/stripe";
 import { fail, ok, type ActionResult } from "@/lib/action-result";
 
@@ -21,8 +22,8 @@ export async function createCheckoutSession(): Promise<ActionResult<{ clientSecr
 }
 
 /**
- * Fired once by the return page after Stripe hands the shopper back. Verifies the session
- * is actually COMPLETE with Stripe before clearing, then empties the CALLER's own cart
+ * Fired once by the return page after Stripe hands the shopper back. Verifies the session is
+ * actually COMPLETE and PAID with Stripe before clearing, then empties the CALLER's own cart
  * (guest cookie + RLS-scoped DB cart). A forged/foreign session id can at worst clear the
  * caller's own cart — it grants nothing and touches no one else's rows.
  */
@@ -38,6 +39,16 @@ export async function clearCartAfterCheckout(
     const session = await getStripe().checkout.sessions.retrieve(parsed.data.sessionId);
     if (session.status !== "complete") {
       return fail({ code: "validation", message: "This checkout hasn't completed." });
+    }
+    // Async methods (e.g. bank debits) hand back status="complete" while payment_status is
+    // still "unpaid", and may later async_payment_failed. Clear ONLY once payment is actually
+    // captured — a failed async pay must leave the cart intact so the shopper can retry. When
+    // an async pay later succeeds, the webhook's apply_paid_order_effects clears the DB cart
+    // authoritatively; this action's remaining job is the guest cookie the webhook can't reach.
+    // Same "is-paid" definition as the webhook order-write (deriveOrderStatus) so the cart-clear
+    // decision and the order-status decision can never drift.
+    if (deriveOrderStatus(session.payment_status) !== "paid") {
+      return fail({ code: "validation", message: "Payment is still processing." });
     }
   } catch {
     return fail({ code: "unknown", message: "Couldn't verify the checkout session." });

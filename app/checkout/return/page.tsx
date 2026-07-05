@@ -5,6 +5,7 @@ import type Stripe from "stripe";
 import { CheckCircle2, Clock3, TimerOff } from "lucide-react";
 import { getStripe } from "@/lib/stripe";
 import { checkoutReturnQuerySchema } from "@/lib/contracts";
+import { deriveOrderStatus } from "@/lib/checkout/pure";
 import { formatPrice } from "@/lib/money";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -35,19 +36,22 @@ export default async function CheckoutReturnPage({
   }
 
   if (session.status === "complete") {
-    const paid =
-      session.payment_status === "paid" ||
-      session.payment_status === "no_payment_required";
+    // Same "is-paid" definition the webhook order-write uses (deriveOrderStatus): `paid` and
+    // `no_payment_required` count as paid; an async method still confirming is "unpaid".
+    const paid = deriveOrderStatus(session.payment_status) === "paid";
     const email = session.customer_details?.email ?? null;
     const totalMinor = session.amount_total ?? 0;
     const currency = (session.currency ?? "inr").toUpperCase();
 
     return (
       <StatusShell>
-        {/* Money is committed either way — clear the shopper's cart (webhook can't touch cookies). */}
-        <FinalizeReturn sessionId={session.id} />
         {paid ? (
           <>
+            {/* Payment captured — safe to clear the cart now (the webhook can't reach the guest
+                cookie; only this in-request Server Action can). The still-confirming async case
+                is the pending branch below: we deliberately do NOT clear there, so a later
+                async_payment_failed leaves the cart intact to retry. */}
+            <FinalizeReturn sessionId={session.id} />
             <StatusIcon tone="success">
               <CheckCircle2 className="size-7" strokeWidth={1.7} />
             </StatusIcon>
