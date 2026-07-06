@@ -6,7 +6,6 @@ import { CheckCircle2, Clock3, TimerOff } from "lucide-react";
 import { getStripe } from "@/lib/stripe";
 import { checkoutReturnQuerySchema } from "@/lib/contracts";
 import { deriveOrderStatus } from "@/lib/checkout/pure";
-import { formatPrice } from "@/lib/money";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { FinalizeReturn } from "@/components/checkout/finalize-return";
@@ -19,6 +18,12 @@ export const metadata: Metadata = { title: "Order status" };
  * shows its state; order truth is written exclusively by the webhook, and NOTHING here
  * triggers fulfilment. The session_id arrives via the shopper's browser → strict Zod parse,
  * invalid/unknown = 404 (same posture as the PDP slug).
+ *
+ * NO buyer PII or amount is rendered here: a session_id is NOT proof of ownership, so echoing
+ * customer_details.email / amount_total would let anyone holding a valid cs_... id read another
+ * shopper's email + total (03_verify Low — "drop the echo"). The order-confirmation email
+ * (Slice 5, Resend) is the channel of record for those details; this page only reports the
+ * coarse payment OUTCOME (confirmed vs. still processing), which leaks nothing sensitive.
  */
 export default async function CheckoutReturnPage({
   searchParams,
@@ -37,11 +42,9 @@ export default async function CheckoutReturnPage({
 
   if (session.status === "complete") {
     // Same "is-paid" definition the webhook order-write uses (deriveOrderStatus): `paid` and
-    // `no_payment_required` count as paid; an async method still confirming is "unpaid".
+    // `no_payment_required` count as paid; an async method still confirming is "unpaid". This is
+    // the ONLY thing read off the session for display — no email, no total (see the file header).
     const paid = deriveOrderStatus(session.payment_status) === "paid";
-    const email = session.customer_details?.email ?? null;
-    const totalMinor = session.amount_total ?? 0;
-    const currency = (session.currency ?? "inr").toUpperCase();
 
     return (
       <StatusShell>
@@ -59,17 +62,7 @@ export default async function CheckoutReturnPage({
               Order confirmed. Foam incoming.
             </h1>
             <p className="mt-2 max-w-[38ch] text-sm leading-relaxed text-muted-foreground">
-              Payment of{" "}
-              <span className="font-semibold text-foreground">
-                {formatPrice(totalMinor, currency)}
-              </span>{" "}
-              received{email ? (
-                <>
-                  {" "}— we&rsquo;ll send updates to{" "}
-                  <span className="font-semibold text-foreground">{email}</span>
-                </>
-              ) : null}
-              .
+              Payment received — your receipt is on its way to your inbox.
             </p>
           </>
         ) : (
@@ -81,14 +74,8 @@ export default async function CheckoutReturnPage({
               Payment processing…
             </h1>
             <p className="mt-2 max-w-[38ch] text-sm leading-relaxed text-muted-foreground">
-              Your payment method is still confirming. Your order is locked in
-              {email ? (
-                <>
-                  {" "}and we&rsquo;ll follow up at{" "}
-                  <span className="font-semibold text-foreground">{email}</span>
-                </>
-              ) : null}
-              .
+              Your payment method is still confirming. Your order is locked in — we&rsquo;ll
+              email you the moment it settles.
             </p>
           </>
         )}
