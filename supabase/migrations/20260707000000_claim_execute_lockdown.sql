@@ -1,0 +1,17 @@
+-- Migration: least-privilege tidy — drop the residual service_role EXECUTE on claim_guest_orders().
+-- Stage: go-live §1 (2026-07-07). Forward-only; runs AFTER 20260704120000_slice5_order_email.sql.
+--
+-- WHY: 20260703120000_slice4_account.sql granted claim_guest_orders() to `authenticated` and revoked
+-- it from public + anon, documenting service_role as "intentionally not granted". But Supabase's
+-- default privileges grant EXECUTE to service_role at function-creation time, and that migration only
+-- revoked anon — so service_role's grant survived (verified against the preview DB, go-live §1 Check 3:
+-- claim_guest_orders mapped to authenticated + postgres + service_role).
+--
+-- IMPACT OF THE RESIDUAL: nil. claim_guest_orders() is SECURITY DEFINER and keys off the session JWT
+-- (auth.uid()/auth.email()); service_role carries no user JWT, so a service_role call hits the
+-- `if v_uid is null ... return 0` guard and claims nothing. service_role also already bypasses RLS.
+-- This revoke changes no behaviour — it only realigns the grant map with the documented least-privilege
+-- intent so the security audit / red-team gate stays clean.
+--
+-- Idempotent: revoking a privilege that is not present is a no-op in Postgres (no error).
+revoke execute on function public.claim_guest_orders() from service_role;

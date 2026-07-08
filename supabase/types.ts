@@ -1,507 +1,620 @@
-// Supabase database types — Slice 0 (profiles) + Slice 1 (catalog) + Slice 2 (cart)
-// + Slice 3 (orders / payments) + Slice 4 (account: order_seq + claim_guest_orders)
-// + Slice 5 (orders.confirmation_email_sent_at + mark_order_confirmation_email_sent).
-//
-// ⚠️ PLACEHOLDER — hand-authored, intentional deviation (recorded in 03_verify).
-// `_config/data_conventions.md` requires generated types, but typegen needs a live
-// Supabase project, which does not exist yet (PRD Slice-4 Gate-1 #5: mock + cloud-runbook
-// defer — no Docker/local stack this box). This file mirrors migration.sql exactly so
-// swapping is seamless. REGENERATE at cloud-wiring time (04_ship):
-//
-//   supabase gen types typescript --project-id <PROJECT_ID> --schema public \
-//     > store/supabase/types.ts
-//
-// Until then, treat this as the source of truth for DB row shapes.
-
 export type Json =
   | string
   | number
   | boolean
   | null
   | { [key: string]: Json | undefined }
-  | Json[];
+  | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.5"
+  }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
-      profiles: {
-        Row: {
-          id: string;
-          display_name: string | null;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id: string;
-          display_name?: string | null;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: {
-          id?: string;
-          display_name?: string | null;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "profiles_id_fkey";
-            columns: ["id"];
-            isOneToOne: true;
-            referencedRelation: "users";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      categories: {
-        Row: {
-          id: string;
-          slug: string;
-          name: string;
-          description: string | null;
-          position: number;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id?: string;
-          slug: string;
-          name: string;
-          description?: string | null;
-          position?: number;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: {
-          id?: string;
-          slug?: string;
-          name?: string;
-          description?: string | null;
-          position?: number;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Relationships: [];
-      };
-      products: {
-        Row: {
-          id: string;
-          slug: string;
-          title: string;
-          description: string | null;
-          brand: string | null;
-          status: Database["public"]["Enums"]["product_status"];
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id?: string;
-          slug: string;
-          title: string;
-          description?: string | null;
-          brand?: string | null;
-          status?: Database["public"]["Enums"]["product_status"];
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: {
-          id?: string;
-          slug?: string;
-          title?: string;
-          description?: string | null;
-          brand?: string | null;
-          status?: Database["public"]["Enums"]["product_status"];
-          created_at?: string;
-          updated_at?: string;
-        };
-        Relationships: [];
-      };
-      product_images: {
-        Row: {
-          id: string;
-          product_id: string;
-          url: string;
-          alt: string | null;
-          position: number;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          product_id: string;
-          url: string;
-          alt?: string | null;
-          position?: number;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          product_id?: string;
-          url?: string;
-          alt?: string | null;
-          position?: number;
-          created_at?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "product_images_product_id_fkey";
-            columns: ["product_id"];
-            isOneToOne: false;
-            referencedRelation: "products";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      variants: {
-        Row: {
-          id: string;
-          product_id: string;
-          sku: string;
-          title: string;
-          price_cents: number;
-          currency: string;
-          inventory_count: number;
-          position: number;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id?: string;
-          product_id: string;
-          sku: string;
-          title: string;
-          price_cents: number;
-          currency?: string;
-          inventory_count?: number;
-          position?: number;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: {
-          id?: string;
-          product_id?: string;
-          sku?: string;
-          title?: string;
-          price_cents?: number;
-          currency?: string;
-          inventory_count?: number;
-          position?: number;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "variants_product_id_fkey";
-            columns: ["product_id"];
-            isOneToOne: false;
-            referencedRelation: "products";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      product_categories: {
-        Row: {
-          product_id: string;
-          category_id: string;
-        };
-        Insert: {
-          product_id: string;
-          category_id: string;
-        };
-        Update: {
-          product_id?: string;
-          category_id?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "product_categories_product_id_fkey";
-            columns: ["product_id"];
-            isOneToOne: false;
-            referencedRelation: "products";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "product_categories_category_id_fkey";
-            columns: ["category_id"];
-            isOneToOne: false;
-            referencedRelation: "categories";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      carts: {
-        Row: {
-          id: string;
-          user_id: string;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id?: string;
-          user_id: string;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: {
-          id?: string;
-          user_id?: string;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "carts_user_id_fkey";
-            columns: ["user_id"];
-            isOneToOne: true;
-            referencedRelation: "users";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
       cart_items: {
         Row: {
-          id: string;
-          cart_id: string;
-          variant_id: string;
-          quantity: number;
-          created_at: string;
-          updated_at: string;
-        };
+          cart_id: string
+          created_at: string
+          id: string
+          quantity: number
+          updated_at: string
+          variant_id: string
+        }
         Insert: {
-          id?: string;
-          cart_id: string;
-          variant_id: string;
-          quantity?: number;
-          created_at?: string;
-          updated_at?: string;
-        };
+          cart_id: string
+          created_at?: string
+          id?: string
+          quantity?: number
+          updated_at?: string
+          variant_id: string
+        }
         Update: {
-          id?: string;
-          cart_id?: string;
-          variant_id?: string;
-          quantity?: number;
-          created_at?: string;
-          updated_at?: string;
-        };
+          cart_id?: string
+          created_at?: string
+          id?: string
+          quantity?: number
+          updated_at?: string
+          variant_id?: string
+        }
         Relationships: [
           {
-            foreignKeyName: "cart_items_cart_id_fkey";
-            columns: ["cart_id"];
-            isOneToOne: false;
-            referencedRelation: "carts";
-            referencedColumns: ["id"];
+            foreignKeyName: "cart_items_cart_id_fkey"
+            columns: ["cart_id"]
+            isOneToOne: false
+            referencedRelation: "carts"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "cart_items_variant_id_fkey";
-            columns: ["variant_id"];
-            isOneToOne: false;
-            referencedRelation: "variants";
-            referencedColumns: ["id"];
+            foreignKeyName: "cart_items_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "variants"
+            referencedColumns: ["id"]
           },
-        ];
-      };
-      orders: {
+        ]
+      }
+      carts: {
         Row: {
-          id: string;
-          user_id: string | null;
-          email: string;
-          status: Database["public"]["Enums"]["order_status"];
-          currency: string;
-          amount_subtotal_minor: number;
-          amount_shipping_minor: number;
-          amount_tax_minor: number;
-          amount_total_minor: number;
-          stripe_checkout_session_id: string;
-          stripe_payment_intent_id: string | null;
-          shipping_name: string | null;
-          shipping_address: Json | null;
-          order_seq: number;
-          paid_at: string | null;
-          confirmation_email_sent_at: string | null;
-          created_at: string;
-          updated_at: string;
-        };
+          created_at: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
         Insert: {
-          id?: string;
-          user_id?: string | null;
-          email: string;
-          status?: Database["public"]["Enums"]["order_status"];
-          currency?: string;
-          amount_subtotal_minor: number;
-          amount_shipping_minor?: number;
-          amount_tax_minor?: number;
-          amount_total_minor: number;
-          stripe_checkout_session_id: string;
-          stripe_payment_intent_id?: string | null;
-          shipping_name?: string | null;
-          shipping_address?: Json | null;
-          order_seq?: number;
-          paid_at?: string | null;
-          confirmation_email_sent_at?: string | null;
-          created_at?: string;
-          updated_at?: string;
-        };
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
         Update: {
-          id?: string;
-          user_id?: string | null;
-          email?: string;
-          status?: Database["public"]["Enums"]["order_status"];
-          currency?: string;
-          amount_subtotal_minor?: number;
-          amount_shipping_minor?: number;
-          amount_tax_minor?: number;
-          amount_total_minor?: number;
-          stripe_checkout_session_id?: string;
-          stripe_payment_intent_id?: string | null;
-          shipping_name?: string | null;
-          shipping_address?: Json | null;
-          order_seq?: number;
-          paid_at?: string | null;
-          confirmation_email_sent_at?: string | null;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "orders_user_id_fkey";
-            columns: ["user_id"];
-            isOneToOne: false;
-            referencedRelation: "users";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      categories: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          position: number
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          position?: number
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          position?: number
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       order_items: {
         Row: {
-          id: string;
-          order_id: string;
-          variant_id: string | null;
-          product_title: string;
-          variant_title: string;
-          sku: string | null;
-          unit_price_minor: number;
-          quantity: number;
-          line_total_minor: number;
-          currency: string;
-          created_at: string;
-        };
+          created_at: string
+          currency: string
+          id: string
+          line_total_minor: number
+          order_id: string
+          product_title: string
+          quantity: number
+          sku: string | null
+          unit_price_minor: number
+          variant_id: string | null
+          variant_title: string
+        }
         Insert: {
-          id?: string;
-          order_id: string;
-          variant_id?: string | null;
-          product_title: string;
-          variant_title: string;
-          sku?: string | null;
-          unit_price_minor: number;
-          quantity: number;
-          line_total_minor: number;
-          currency?: string;
-          created_at?: string;
-        };
+          created_at?: string
+          currency?: string
+          id?: string
+          line_total_minor: number
+          order_id: string
+          product_title: string
+          quantity: number
+          sku?: string | null
+          unit_price_minor: number
+          variant_id?: string | null
+          variant_title: string
+        }
         Update: {
-          id?: string;
-          order_id?: string;
-          variant_id?: string | null;
-          product_title?: string;
-          variant_title?: string;
-          sku?: string | null;
-          unit_price_minor?: number;
-          quantity?: number;
-          line_total_minor?: number;
-          currency?: string;
-          created_at?: string;
-        };
+          created_at?: string
+          currency?: string
+          id?: string
+          line_total_minor?: number
+          order_id?: string
+          product_title?: string
+          quantity?: number
+          sku?: string | null
+          unit_price_minor?: number
+          variant_id?: string | null
+          variant_title?: string
+        }
         Relationships: [
           {
-            foreignKeyName: "order_items_order_id_fkey";
-            columns: ["order_id"];
-            isOneToOne: false;
-            referencedRelation: "orders";
-            referencedColumns: ["id"];
+            foreignKeyName: "order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "order_items_variant_id_fkey";
-            columns: ["variant_id"];
-            isOneToOne: false;
-            referencedRelation: "variants";
-            referencedColumns: ["id"];
+            foreignKeyName: "order_items_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "variants"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
+      orders: {
+        Row: {
+          amount_shipping_minor: number
+          amount_subtotal_minor: number
+          amount_tax_minor: number
+          amount_total_minor: number
+          confirmation_email_sent_at: string | null
+          created_at: string
+          currency: string
+          email: string
+          id: string
+          order_seq: number
+          paid_at: string | null
+          shipping_address: Json | null
+          shipping_name: string | null
+          status: Database["public"]["Enums"]["order_status"]
+          stripe_checkout_session_id: string
+          stripe_payment_intent_id: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          amount_shipping_minor?: number
+          amount_subtotal_minor: number
+          amount_tax_minor?: number
+          amount_total_minor: number
+          confirmation_email_sent_at?: string | null
+          created_at?: string
+          currency?: string
+          email: string
+          id?: string
+          order_seq?: number
+          paid_at?: string | null
+          shipping_address?: Json | null
+          shipping_name?: string | null
+          status?: Database["public"]["Enums"]["order_status"]
+          stripe_checkout_session_id: string
+          stripe_payment_intent_id?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          amount_shipping_minor?: number
+          amount_subtotal_minor?: number
+          amount_tax_minor?: number
+          amount_total_minor?: number
+          confirmation_email_sent_at?: string | null
+          created_at?: string
+          currency?: string
+          email?: string
+          id?: string
+          order_seq?: number
+          paid_at?: string | null
+          shipping_address?: Json | null
+          shipping_name?: string | null
+          status?: Database["public"]["Enums"]["order_status"]
+          stripe_checkout_session_id?: string
+          stripe_payment_intent_id?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      product_categories: {
+        Row: {
+          category_id: string
+          product_id: string
+        }
+        Insert: {
+          category_id: string
+          product_id: string
+        }
+        Update: {
+          category_id?: string
+          product_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_categories_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_categories_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_images: {
+        Row: {
+          alt: string | null
+          created_at: string
+          id: string
+          position: number
+          product_id: string
+          url: string
+        }
+        Insert: {
+          alt?: string | null
+          created_at?: string
+          id?: string
+          position?: number
+          product_id: string
+          url: string
+        }
+        Update: {
+          alt?: string | null
+          created_at?: string
+          id?: string
+          position?: number
+          product_id?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_images_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      products: {
+        Row: {
+          brand: string | null
+          created_at: string
+          description: string | null
+          id: string
+          slug: string
+          status: Database["public"]["Enums"]["product_status"]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          brand?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          slug: string
+          status?: Database["public"]["Enums"]["product_status"]
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          brand?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          slug?: string
+          status?: Database["public"]["Enums"]["product_status"]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          display_name: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string | null
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       stripe_events: {
         Row: {
-          id: string;
-          type: string;
-          processed_at: string;
-        };
+          id: string
+          processed_at: string
+          type: string
+        }
         Insert: {
-          id: string;
-          type: string;
-          processed_at?: string;
-        };
+          id: string
+          processed_at?: string
+          type: string
+        }
         Update: {
-          id?: string;
-          type?: string;
-          processed_at?: string;
-        };
-        Relationships: [];
-      };
-    };
-    Views: Record<never, never>;
+          id?: string
+          processed_at?: string
+          type?: string
+        }
+        Relationships: []
+      }
+      variants: {
+        Row: {
+          created_at: string
+          currency: string
+          id: string
+          inventory_count: number
+          position: number
+          price_cents: number
+          product_id: string
+          sku: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          currency?: string
+          id?: string
+          inventory_count?: number
+          position?: number
+          price_cents: number
+          product_id: string
+          sku: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          currency?: string
+          id?: string
+          inventory_count?: number
+          position?: number
+          price_cents?: number
+          product_id?: string
+          sku?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "variants_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+    }
+    Views: {
+      [_ in never]: never
+    }
     Functions: {
-      record_stripe_order: {
-        Args: {
-          p_event_id: string;
-          p_event_type: string;
-          p_order: Json;
-          p_items: Json;
-          p_cart_id?: string | null;
-        };
-        Returns: string;
-      };
+      apply_paid_order_effects: {
+        Args: { p_cart_id?: string; p_order_id: string }
+        Returns: undefined
+      }
+      claim_guest_orders: { Args: never; Returns: number }
       finalize_stripe_order: {
         Args: {
-          p_event_id: string;
-          p_event_type: string;
-          p_session_id: string;
-          p_paid: boolean;
-          p_payment_intent_id?: string | null;
-          p_cart_id?: string | null;
-        };
-        Returns: string;
-      };
-      apply_paid_order_effects: {
-        Args: {
-          p_order_id: string;
-          p_cart_id?: string | null;
-        };
-        Returns: undefined;
-      };
-      // Slice 4 — guest-claim. Parameterless BY DESIGN: the match key is the verified JWT email
-      // (auth.email()), never a client argument. Returns the count of orders newly attached.
-      claim_guest_orders: {
-        Args: Record<PropertyKey, never>;
-        Returns: number;
-      };
-      // Slice 5 — order-confirmation email idempotency marker setter. Service-role ONLY
-      // (EXECUTE revoked from client roles). Atomically sets orders.confirmation_email_sent_at
-      // where still NULL; returns true iff THIS call claimed the send (the webhook's
-      // prefer-delivery send-then-mark step).
+          p_cart_id?: string
+          p_event_id: string
+          p_event_type: string
+          p_paid: boolean
+          p_payment_intent_id?: string
+          p_session_id: string
+        }
+        Returns: string
+      }
       mark_order_confirmation_email_sent: {
+        Args: { p_order_id: string }
+        Returns: boolean
+      }
+      record_stripe_order: {
         Args: {
-          p_order_id: string;
-        };
-        Returns: boolean;
-      };
-    };
+          p_cart_id?: string
+          p_event_id: string
+          p_event_type: string
+          p_items: Json
+          p_order: Json
+        }
+        Returns: string
+      }
+    }
     Enums: {
-      product_status: "draft" | "active" | "archived";
-      order_status: "pending" | "paid" | "fulfilled" | "refunded" | "cancelled";
-    };
-    CompositeTypes: Record<never, never>;
-  };
-};
+      order_status: "pending" | "paid" | "fulfilled" | "refunded" | "cancelled"
+      product_status: "draft" | "active" | "archived"
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
+}
 
-// Convenience row aliases (regeneration keeps these stable).
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+
+export type Tables<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      Row: infer R
+    }
+    ? R
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
+    : never
+
+export type TablesInsert<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Insert: infer I
+    }
+    ? I
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
+    : never
+
+export type TablesUpdate<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Update: infer U
+    }
+    ? U
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
+    : never
+
+export type Enums<
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
+
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
+
+export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
+  public: {
+    Enums: {
+      order_status: ["pending", "paid", "fulfilled", "refunded", "cancelled"],
+      product_status: ["draft", "active", "archived"],
+    },
+  },
+} as const
+
+// Convenience row aliases (hand-added on top of the generated Database type).
+// NOTE: `supabase gen types` OVERWRITES this file and does NOT emit these — after any
+// regeneration this block must be re-appended. Go-live 2026-07 Edit-Source candidate:
+// move these to a separate module (e.g. supabase/aliases.ts) so regen never drops them.
 export type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 export type ProfileInsert = Database["public"]["Tables"]["profiles"]["Insert"];
 export type ProfileUpdate = Database["public"]["Tables"]["profiles"]["Update"];

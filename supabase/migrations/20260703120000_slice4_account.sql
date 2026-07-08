@@ -43,8 +43,13 @@ where o.id = n.id
   and o.order_seq is null;
 
 -- Advance the sequence past the highest backfilled value so future defaults never collide.
--- is_called = true ⇒ the next nextval() returns max+1 (or 1 when the table is empty).
-select setval('public.order_number_seq', coalesce((select max(order_seq) from public.orders), 0), true);
+-- Empty table ⇒ is_called=false with value 1 ⇒ next nextval() returns 1 (setval cannot take 0:
+-- the sequence MINVALUE is 1). Non-empty ⇒ is_called=true with value max ⇒ next nextval() = max+1.
+select setval(
+  'public.order_number_seq',
+  coalesce((select max(order_seq) from public.orders), 1),
+  (select exists (select 1 from public.orders where order_seq is not null))
+);
 
 -- New webhook-written orders get their number automatically via the column default — Slice 3's
 -- record_stripe_order insert never names order_seq, so this default fills it with no code change.

@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
       // orders are claimed. Idempotent + best-effort: a failure here never blocks sign-in, and
       // the next sign-in retries.
       try {
-        await supabase.rpc("claim_guest_orders", {});
+        await supabase.rpc("claim_guest_orders");
       } catch {
         // Non-fatal — unclaimed orders remain matchable on the next sign-in.
       }

@@ -1,4 +1,4 @@
-﻿-- Migration: Slice 3 checkout+payments â€” orders / order_items / stripe_events + order-write RPCs (DDL).
+-- Migration: Slice 3 checkout+payments â€” orders / order_items / stripe_events + order-write RPCs (DDL).
 -- Stage: 01_data (output / pending change-set). DDL ONLY â€” RLS policies live in rls.sql.
 -- Forward-only; runs AFTER 20260702000000_cart.sql. Applied (combined w/ rls.sql) by 04_ship as
 -- store/supabase/migrations/20260702120000_orders.sql (preview/branch first, never prod pre-gate).
