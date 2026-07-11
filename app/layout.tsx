@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Fraunces } from "next/font/google";
+import { Archivo, Fraunces, Space_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 import { GoogleAnalytics } from "@/components/analytics/ga";
@@ -10,11 +10,25 @@ import { CartProvider } from "@/components/cart/cart-provider";
 import { CartDrawer } from "@/components/cart/cart-drawer";
 import { getCart } from "@/lib/cart/service";
 
-// Brand type: Inter for UI/body, Fraunces (variable serif) for display headings.
-const inter = Inter({ variable: "--font-inter", subsets: ["latin"], display: "swap" });
+// Brand type (design v2): Archivo for UI/body, Fraunces (variable serif, with the
+// opsz/SOFT/WONK axes the design's font-variation-settings rely on) for display,
+// Space Mono for instrument/spec labels.
+const archivo = Archivo({
+  variable: "--font-archivo",
+  subsets: ["latin"],
+  display: "swap",
+  axes: ["wdth"],
+});
 const fraunces = Fraunces({
   variable: "--font-fraunces",
   subsets: ["latin"],
+  display: "swap",
+  axes: ["SOFT", "WONK", "opsz"],
+});
+const spaceMono = Space_Mono({
+  variable: "--font-space-mono",
+  subsets: ["latin"],
+  weight: ["400", "700"],
   display: "swap",
 });
 
@@ -33,7 +47,7 @@ export default async function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${fraunces.variable} h-full antialiased`}
+      className={`${archivo.variable} ${fraunces.variable} ${spaceMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col">
         <Providers>
