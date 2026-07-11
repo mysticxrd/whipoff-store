@@ -48,7 +48,7 @@ export default async function CheckoutPage() {
           <CheckoutEmbed />
         </div>
       ) : (
-        <div className="mt-6 rounded-lg border border-border bg-green-50 p-5">
+        <div className="mt-6 rounded-lg border border-border bg-pine p-5">
           <h2 className="font-display text-base font-bold text-foreground">
             Payments aren&rsquo;t switched on yet.
           </h2>

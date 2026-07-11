@@ -15,7 +15,7 @@ export function ProductCard({ product }: { product: CatalogProduct }) {
       href={`/products/${product.slug}`}
       className="group flex flex-col overflow-hidden rounded-lg border border-border bg-card text-card-foreground transition-colors hover:border-foreground/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
     >
-      <div className="relative aspect-square w-full overflow-hidden bg-green-50">
+      <div className="relative aspect-square w-full overflow-hidden bg-ink">
         <CatalogImage
           url={primary?.url ?? `gradient:${product.slug}:0`}
           alt={primary?.alt ?? product.title}

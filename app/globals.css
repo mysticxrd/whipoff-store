@@ -276,7 +276,7 @@
   from { transform: translateX(-50%) scale(0.96); opacity: 0.85; }
   to { transform: translateX(-50%) scale(1.06); opacity: 1; }
 }
-.animate-marquee { animation: wo-marquee 26s linear infinite; }
+.animate-marquee { animation: wo-marquee 36s linear infinite; }
 .animate-float {
   animation: wo-float 4.5s ease-in-out infinite;
   transform-origin: 50% 72%;
@@ -285,4 +285,109 @@
 .animate-halo { animation: wo-halo-breathe 7s ease-in-out infinite alternate; }
 @media (prefers-reduced-motion: reduce) {
   .animate-marquee, .animate-float, .animate-halo { animation: none; }
+}
+
+/* Scroll reveals — <Reveal> (IntersectionObserver) toggles .is-in. */
+.reveal {
+  opacity: 0;
+  transform: translateY(26px);
+  transition: opacity 0.9s var(--ease-out), transform 0.9s var(--ease-out);
+  transition-delay: var(--reveal-delay, 0ms);
+}
+.reveal.is-in { opacity: 1; transform: none; }
+
+/* Masked line rise — hero wordmark chars + manifesto lines. Chars animate on
+   load (hero is above the fold); manifesto lines transition on .is-in. */
+@keyframes wo-char-rise {
+  to { transform: translateY(0); }
+}
+.char-rise {
+  display: inline-block;
+  transform: translateY(110%);
+  animation: wo-char-rise 1.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation-delay: var(--char-delay, 0ms);
+}
+.line-mask { display: block; overflow: hidden; }
+.line-rise {
+  display: block;
+  transform: translateY(110%);
+  transition: transform 1.25s cubic-bezier(0.16, 1, 0.3, 1);
+  transition-delay: var(--reveal-delay, 0ms);
+}
+.is-in .line-rise, .is-in.line-rise { transform: translateY(0); }
+
+/* Hero scroll cue */
+@keyframes wo-scroll-line {
+  0% { transform: translateX(-100%); }
+  55%, 100% { transform: translateX(100%); }
+}
+.scroll-line-sweep::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--gold);
+  animation: wo-scroll-line 2.2s var(--ease-lux) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal, .line-rise { opacity: 1; transform: none; transition: none; }
+  .char-rise { animation: none; transform: translateY(0); }
+  .scroll-line-sweep::after { animation: none; }
+}
+
+/* Horizontal snap tracks (gauges, ritual) */
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* Shared range styling (gloss lab + dilution calc) */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 44px; /* generous touch target */
+  background: transparent;
+  cursor: pointer;
+}
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 2px;
+  background: var(--bone-14);
+  border-radius: 99px;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 26px;
+  height: 26px;
+  margin-top: -12px;
+  border-radius: 50%;
+  background: var(--bone);
+  border: 6px solid var(--ink);
+  box-shadow: 0 0 0 1px var(--bone-40);
+  transition: transform 0.25s var(--ease-out);
+}
+input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.15); }
+input[type="range"]::-moz-range-track {
+  height: 2px;
+  background: var(--bone-14);
+  border-radius: 99px;
+}
+input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--bone);
+  border: 6px solid var(--ink);
+  box-shadow: 0 0 0 1px var(--bone-40);
+}
+
+/* Film grain — fixed decorative overlay (layout.tsx renders the svg filter defs) */
+.grain {
+  position: fixed;
+  inset: -50%;
+  width: 200%;
+  height: 200%;
+  pointer-events: none;
+  z-index: 150;
+  opacity: 0.05;
+  filter: url(#grain-filter);
+  mix-blend-mode: overlay;
 }

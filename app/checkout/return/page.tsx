@@ -150,8 +150,8 @@ function StatusIcon({
     <div
       className={cn(
         "grid size-16 place-items-center rounded-full",
-        tone === "success" && "bg-green-50 text-green-600",
-        tone === "pending" && "bg-green-50 text-green-800",
+        tone === "success" && "bg-success-bg text-success",
+        tone === "pending" && "bg-bone/10 text-gold",
         tone === "muted" && "bg-muted text-muted-foreground",
       )}
     >

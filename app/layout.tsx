@@ -50,6 +50,14 @@ export default async function RootLayout({
       className={`${archivo.variable} ${fraunces.variable} ${spaceMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col">
+        {/* Film grain — fixed decorative overlay (design v2); filter defs feed .grain */}
+        <svg className="absolute" width="0" height="0" aria-hidden>
+          <filter id="grain-filter">
+            <feTurbulence type="fractalNoise" baseFrequency="0.72" numOctaves="2" stitchTiles="stitch" />
+            <feColorMatrix type="saturate" values="0" />
+          </filter>
+        </svg>
+        <div className="grain" aria-hidden />
         <Providers>
           <CartProvider initialCart={cart}>
             <AnnouncementBar />

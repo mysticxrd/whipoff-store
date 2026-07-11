@@ -1,13 +1,20 @@
-const ITEMS = ["pH-Neutral", "Ceramic-Safe", "High-Foam", "Swirl-Free Contact", "Wax-Safe", "Hydroilx™ Slick"];
+const ITEMS = [
+  "FOAMS LIKE WHIPPED CREAM",
+  "pH 6.9 — DEAD NEUTRAL",
+  "1 : 256 DILUTION",
+  "SAFE ON CERAMIC · WAX · PPF",
+  "ZERO RESIDUE",
+  "GLOSS, NOT GIMMICKS",
+];
 
 function Track() {
   return (
-    <div className="flex shrink-0 items-center gap-6 whitespace-nowrap px-3 py-3 font-display text-lg font-black tracking-tight">
+    <div className="flex shrink-0 items-center gap-[38px] whitespace-nowrap pr-[38px]">
       {ITEMS.map((item) => (
-        <span key={item} className="flex items-center gap-6">
-          {item}
-          <span className="opacity-45" aria-hidden>
-            ◆
+        <span key={item} className="flex items-center gap-[38px]">
+          <span className="font-mono text-[0.72rem] tracking-[0.18em] text-bone/60">{item}</span>
+          <span className="text-[0.45rem] text-gold" aria-hidden>
+            ●
           </span>
         </span>
       ))}
@@ -15,10 +22,10 @@ function Track() {
   );
 }
 
-/** Infinite CSS marquee — two copies of the track, translated -50% so the loop is seamless. */
+/** Design v2 ticker — infinite CSS marquee, two copies translated -50% for a seamless loop. */
 export function Marquee() {
   return (
-    <div className="overflow-hidden border-y border-black/10 bg-green-500 text-green-950">
+    <div aria-hidden className="overflow-hidden border-y border-bone/10 bg-pine py-4">
       <div className="flex w-max animate-marquee">
         <Track />
         <Track />
