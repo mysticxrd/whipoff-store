@@ -17,7 +17,12 @@ const A1 = -30;
 
 const pt = (deg: number, rad: number): [number, number] => {
   const a = (deg * Math.PI) / 180;
-  return [CX + rad * Math.cos(a), CY - rad * Math.sin(a)];
+  // Round: Math.cos/sin differ in the last bit between the SSR Node runtime and
+  // the browser, which otherwise trips React hydration on these SVG attributes.
+  return [
+    Math.round((CX + rad * Math.cos(a)) * 100) / 100,
+    Math.round((CY - rad * Math.sin(a)) * 100) / 100,
+  ];
 };
 const arcPath = (a0: number, a1: number, rad: number) => {
   const [x0, y0] = pt(a0, rad);

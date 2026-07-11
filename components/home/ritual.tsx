@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { Eyebrow } from "@/components/home/eyebrow";
 import { Reveal } from "@/components/home/reveal";
 
@@ -34,16 +34,12 @@ const STEPS = [
 /** Design v2 RITUAL — horizontal snap track of four step cards, drag-to-scroll on fine pointers. */
 export function Ritual() {
   const trackRef = useRef<HTMLDivElement>(null);
-  const [hint, setHint] = useState("DRAG →");
 
   useEffect(() => {
     const track = trackRef.current;
     if (!track) return;
     const finePointer = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
-    if (!finePointer) {
-      setHint("SWIPE →");
-      return;
-    }
+    if (!finePointer) return;
 
     let down = false;
     let startX = 0;
@@ -96,7 +92,8 @@ export function Ritual() {
           aria-hidden
           className="mono-label absolute bottom-1.5 right-[var(--gutter)] text-[0.66rem] text-bone/40"
         >
-          {hint}
+          <span className="hidden pointer-fine:inline">DRAG →</span>
+          <span className="pointer-fine:hidden">SWIPE →</span>
         </p>
       </div>
 
