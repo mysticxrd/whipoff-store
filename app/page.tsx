@@ -6,6 +6,7 @@ import { Hero } from "@/components/home/hero";
 import { Logbook } from "@/components/home/logbook";
 import { Manifesto } from "@/components/home/manifesto";
 import { Marquee } from "@/components/home/marquee";
+import { Preloader } from "@/components/home/preloader";
 import { Ritual } from "@/components/home/ritual";
 import { BuyBlock } from "@/components/product/buy-block";
 import { getProductBySlug } from "@/lib/catalog/queries";
@@ -22,6 +23,7 @@ export default async function Home() {
 
   return (
     <main className="flex flex-1 flex-col">
+      <Preloader />
       <Hero product={product} />
       <Marquee />
       <Manifesto />

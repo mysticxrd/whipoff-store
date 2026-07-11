@@ -287,6 +287,14 @@
   .animate-marquee, .animate-float, .animate-halo { animation: none; }
 }
 
+/* Preloader gate — <Preloader> sets html[data-wo-loading] for the duration of
+   the loading curtain: scroll is locked and the hero's entrance (char-rise
+   keyframes + already-is-in reveals) is held so the intro plays only once the
+   curtain lifts and the attribute is removed. */
+html[data-wo-loading] { overflow: hidden; }
+html[data-wo-loading] .char-rise { animation-play-state: paused; }
+html[data-wo-loading] .reveal.is-in { opacity: 0; transform: translateY(26px); }
+
 /* Scroll reveals — <Reveal> (IntersectionObserver) toggles .is-in. */
 .reveal {
   opacity: 0;
