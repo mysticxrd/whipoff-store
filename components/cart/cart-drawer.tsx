@@ -168,7 +168,7 @@ export function CartDrawer() {
               The whip is waiting.
             </p>
             <Link
-              href="/products"
+              href="/"
               onClick={close}
               className={cn(buttonVariants({ variant: "outline", size: "lg" }), "mt-6")}
             >

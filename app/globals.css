@@ -1,5 +1,15 @@
 @import "tailwindcss";
 
+/* Lenis smooth scroll (see components/layout/smooth-scroll.tsx) — official base
+   styles. Lenis toggles these `lenis` classes on <html>; the `scroll-behavior:auto`
+   override keeps native CSS smooth-scroll from fighting Lenis's per-frame updates. */
+html.lenis,
+html.lenis body { height: auto; }
+.lenis.lenis-smooth { scroll-behavior: auto !important; }
+.lenis.lenis-smooth [data-lenis-prevent] { overscroll-behavior: contain; }
+.lenis.lenis-stopped { overflow: hidden; }
+.lenis.lenis-smooth iframe { pointer-events: none; }
+
 /*
  * Whipoff design tokens — v2 "racing green" design (handoff/design-v2/css/main.css,
  * mirrored in _config/design_system.md).
@@ -272,9 +282,13 @@
   78% { transform: translateY(-7px) rotate(1.8deg); }
   100% { transform: translateY(0) rotate(-1.6deg); }
 }
+/* Breathe via the `scale` property only — the halo's horizontal centering is
+   owned by the `-translate-x-1/2` utility, which in Tailwind v4 compiles to the
+   independent `translate` property. Animating `transform` here would stack a
+   second translateX(-50%) on top of it and shove the halo off to the left. */
 @keyframes wo-halo-breathe {
-  from { transform: translateX(-50%) scale(0.96); opacity: 0.85; }
-  to { transform: translateX(-50%) scale(1.06); opacity: 1; }
+  from { scale: 0.96; opacity: 0.85; }
+  to { scale: 1.06; opacity: 1; }
 }
 .animate-marquee { animation: wo-marquee 36s linear infinite; }
 .animate-float {

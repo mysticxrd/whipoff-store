@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { analytics } from "@/lib/analytics";
 
-/** Fires `product_viewed` once on mount (PDP). Renders nothing. */
+/** Fires `product_viewed` once on mount (homepage — the single-product surface). Renders nothing. */
 export function ProductViewTracker({
   productId,
   slug,

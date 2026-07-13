@@ -3,9 +3,9 @@ import { Archivo, Fraunces, Space_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 import { GoogleAnalytics } from "@/components/analytics/ga";
-import { AnnouncementBar } from "@/components/layout/announcement-bar";
 import { SiteHeader } from "@/components/layout/site-header";
 import { SiteFooter } from "@/components/layout/site-footer";
+import { SmoothScroll } from "@/components/layout/smooth-scroll";
 import { CartProvider } from "@/components/cart/cart-provider";
 import { CartDrawer } from "@/components/cart/cart-drawer";
 import { getCart } from "@/lib/cart/service";
@@ -47,6 +47,12 @@ export default async function RootLayout({
   return (
     <html
       lang="en"
+      // The <Preloader>'s parser-run inline script sets data-wo-loading on <html>
+      // before React hydrates (to gate the hero intro without a flash), so the
+      // real DOM legitimately differs from this server markup. Suppress the
+      // expected attribute mismatch — this applies only to <html>'s own
+      // attributes, not the tree below, so real mismatches still surface.
+      suppressHydrationWarning
       className={`${archivo.variable} ${fraunces.variable} ${spaceMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col">
@@ -58,9 +64,9 @@ export default async function RootLayout({
           </filter>
         </svg>
         <div className="grain" aria-hidden />
+        <SmoothScroll />
         <Providers>
           <CartProvider initialCart={cart}>
-            <AnnouncementBar />
             <SiteHeader />
             <div className="flex flex-1 flex-col">{children}</div>
             <SiteFooter />

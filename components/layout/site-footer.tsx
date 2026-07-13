@@ -44,7 +44,7 @@ export function SiteFooter() {
             The whip deserves it.
           </p>
           <Link
-            href="/products"
+            href="/"
             className="inline-flex min-h-[54px] items-center justify-center rounded-full bg-bone px-7 font-medium text-ink transition-colors hover:bg-gold"
           >
             Shop Gloss Wash
@@ -55,11 +55,8 @@ export function SiteFooter() {
         <div className="mono-label mx-auto grid max-w-5xl gap-8 pb-14 uppercase sm:grid-cols-3 sm:pb-20">
           <div className="flex flex-col gap-3">
             <span className="mb-1 text-gold">Shop</span>
-            <Link href="/products" className="py-1 text-bone/60 transition-colors hover:text-bone">
-              All products
-            </Link>
             <Link
-              href="/products/whipoff-gloss-wash"
+              href="/"
               className="py-1 text-bone/60 transition-colors hover:text-bone"
             >
               Gloss Wash
@@ -107,6 +104,7 @@ export function SiteFooter() {
       {/* Giant wordmark, clipped by the footer edge */}
       <div
         aria-hidden
+        data-parallax="footer-mark"
         className="select-none text-center font-display text-[clamp(4rem,19vw,19rem)] font-black leading-[0.72] tracking-tight text-moss [transform:translateY(18%)]"
       >
         WHIPOFF

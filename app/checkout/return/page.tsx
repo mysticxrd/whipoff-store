@@ -79,7 +79,10 @@ export default async function CheckoutReturnPage({
             </p>
           </>
         )}
-        <Link href="/products" className={cn(buttonVariants({ size: "lg" }), "mt-6")}>
+        <Link
+          href="/"
+          className={cn(buttonVariants({ size: "lg" }), "mt-6")}
+        >
           Continue shopping
         </Link>
       </StatusShell>
@@ -103,7 +106,7 @@ export default async function CheckoutReturnPage({
           Resume checkout
         </Link>
         <Link
-          href="/products"
+          href="/"
           className={cn(buttonVariants({ variant: "outline", size: "lg" }), "mt-2")}
         >
           Back to shop

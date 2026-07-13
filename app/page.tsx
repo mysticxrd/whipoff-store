@@ -8,8 +8,10 @@ import { Manifesto } from "@/components/home/manifesto";
 import { Marquee } from "@/components/home/marquee";
 import { Preloader } from "@/components/home/preloader";
 import { Ritual } from "@/components/home/ritual";
+import { ProductViewTracker } from "@/components/catalog/product-view-tracker";
 import { BuyBlock } from "@/components/product/buy-block";
 import { getProductBySlug } from "@/lib/catalog/queries";
+import { fromPrice } from "@/lib/catalog/select";
 
 // The single-product DTC landing (handoff: design-v2/index.html). The hero product resolves
 // through the same Supabase-with-seed-fallback query layer as the PDP, so it's never hardcoded
@@ -21,9 +23,19 @@ export default async function Home() {
   const product = await getProductBySlug(HERO_PRODUCT_SLUG);
   if (!product) notFound();
 
+  // Single-product store: the homepage IS the product surface, so the view_item event fires
+  // here (previously on the now-removed /products PDP) to keep product-view analytics intact.
+  const price = fromPrice(product);
+
   return (
     <main className="flex flex-1 flex-col">
       <Preloader />
+      <ProductViewTracker
+        productId={product.id}
+        slug={product.slug}
+        valueMinor={price?.priceCents ?? 0}
+        currency={price?.currency ?? "INR"}
+      />
       <Hero product={product} />
       <Marquee />
       <Manifesto />

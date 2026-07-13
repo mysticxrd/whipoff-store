@@ -24,7 +24,7 @@ export default async function CheckoutPage() {
   return (
     <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-6 sm:py-10">
       <Link
-        href="/products"
+        href="/"
         className="inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="size-4" strokeWidth={1.8} />

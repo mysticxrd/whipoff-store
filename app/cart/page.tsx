@@ -25,7 +25,10 @@ export default function CartPage() {
       <p className="mt-2 max-w-[30ch] text-sm leading-relaxed text-muted-foreground">
         Tap the cart icon up top — or browse the catalog and line up your foam.
       </p>
-      <Link href="/products" className={`${buttonVariants({ size: "lg" })} mt-6`}>
+      <Link
+        href="/"
+        className={`${buttonVariants({ size: "lg" })} mt-6`}
+      >
         Shop Whipoff
       </Link>
     </main>

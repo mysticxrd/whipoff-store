@@ -68,6 +68,7 @@ export function Hero({ product }: { product: CatalogProduct }) {
 
       <h1
         aria-label="Whipoff"
+        data-parallax="hero-title"
         className="relative z-[1] select-none text-center font-display text-[clamp(4rem,21vw,17rem)] font-black leading-[0.8] tracking-[-0.01em] [font-variation-settings:'opsz'_144,'SOFT'_100,'WONK'_0]"
       >
         <TitleRow text="WHIP" startDelay={150} />
