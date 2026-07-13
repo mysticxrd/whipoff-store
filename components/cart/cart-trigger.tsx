@@ -22,18 +22,17 @@ export function CartTrigger() {
       type="button"
       onClick={handleClick}
       aria-label={`Cart, ${cart.itemCount} item${cart.itemCount === 1 ? "" : "s"}`}
-      className="relative inline-flex min-h-11 items-center gap-2 rounded-full border-[1.5px] border-white/40 px-4 text-white transition-colors hover:border-white/70 hover:bg-white/10"
+      className="relative grid size-11 place-items-center rounded-full text-bone/90 transition-colors hover:bg-bone/10 hover:text-bone"
     >
       <ShoppingCart className="size-5" strokeWidth={1.8} />
-      <span className="text-sm font-semibold sm:hidden">Cart</span>
-      {cart.itemCount > 0 ? (
-        <span
-          aria-hidden
-          className="absolute -right-1 -top-1 grid size-5 place-items-center rounded-full bg-green-500 text-[11px] font-bold text-green-950"
-        >
-          {cart.itemCount > 9 ? "9+" : cart.itemCount}
-        </span>
-      ) : null}
+      <span
+        aria-hidden
+        className={`absolute right-0 top-0.5 grid h-[18px] min-w-[18px] place-items-center rounded-full px-1 text-[0.62rem] font-bold leading-none ${
+          cart.itemCount > 0 ? "bg-gold text-ink" : "bg-fern text-bone/60"
+        }`}
+      >
+        {cart.itemCount > 9 ? "9+" : cart.itemCount}
+      </span>
     </button>
   );
 }

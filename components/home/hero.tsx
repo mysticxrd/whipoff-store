@@ -1,122 +1,134 @@
 import Link from "next/link";
-import { CatalogImage } from "@/components/catalog/catalog-image";
-import { RatingStars } from "@/components/product/rating-stars";
+import { BottleCanvas } from "@/components/home/bottle-canvas";
 import { fromPrice } from "@/lib/catalog/select";
-import { formatPrice, formatWasPrice, LAUNCH_SALE_ACTIVE } from "@/lib/money";
+import { formatPrice } from "@/lib/money";
 import type { CatalogProduct } from "@/lib/catalog/seed";
 
-const STATS = [
-  { value: "518", unit: "ml", label: "per bottle" },
-  { value: "~25", unit: "", label: "washes" },
-  { value: "6.5–7", unit: "", label: "neutral pH" },
-  { value: "1:256", unit: "", label: "dilution" },
-];
+const CHIPS = ["pH 6.9", "1 : 256", "CERAMIC-SAFE"];
 
-const FEATURE_CHIPS = ["pH-neutral", "Ceramic-safe", "High-foam"];
+/** Masked char-rise wordmark row — server-rendered spans with staggered CSS delays. */
+function TitleRow({ text, startDelay, dot }: { text: string; startDelay: number; dot?: boolean }) {
+  return (
+    <span className="line-mask">
+      {[...text].map((ch, i) => (
+        <span
+          key={i}
+          className="char-rise"
+          style={{ "--char-delay": `${startDelay + i * 45}ms` } as React.CSSProperties}
+        >
+          {ch}
+        </span>
+      ))}
+      {dot ? (
+        <span
+          className="char-rise not-italic text-gold"
+          style={{ "--char-delay": `${startDelay + text.length * 45}ms` } as React.CSSProperties}
+        >
+          .
+        </span>
+      ) : null}
+    </span>
+  );
+}
 
-/** The handoff's HERO section — brand statement, floating bottle, price, stat grid. */
+/** On-load reveal for the hero's supporting copy (below-the-wordmark elements). */
+function HeroFade({ delay, children }: { delay: number; children: React.ReactNode }) {
+  return (
+    <div
+      className="reveal is-in"
+      style={{ "--reveal-delay": `${delay}ms` } as React.CSSProperties}
+    >
+      {children}
+    </div>
+  );
+}
+
+/** Design v2 HERO — giant Fraunces wordmark, the 3D bottle overlapping it, CTAs, spec chips. */
 export function Hero({ product }: { product: CatalogProduct }) {
   const price = fromPrice(product);
-  const bottle = product.images[1] ?? product.images[0];
 
   return (
-    <section id="top" className="relative overflow-hidden bg-green-950 text-white">
+    <section
+      id="top"
+      className="relative flex min-h-svh flex-col items-center overflow-clip px-[var(--gutter)] pb-14 pt-4 lg:pb-24"
+    >
+      {/* emerald halo behind the bottle */}
       <div
         aria-hidden
-        className="pointer-events-none absolute -right-[22%] -top-[12%] size-[540px] rounded-full"
-        style={{ background: "radial-gradient(circle, rgba(46,129,89,.5), rgba(46,129,89,0) 68%)" }}
+        className="animate-halo pointer-events-none absolute left-1/2 top-[22%] aspect-square w-[min(140vw,900px)] -translate-x-1/2"
+        style={{
+          background:
+            "radial-gradient(circle, rgba(46,158,99,0.16) 0%, rgba(46,158,99,0.05) 38%, transparent 68%)",
+        }}
       />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute left-1/2 top-[56%] -translate-x-1/2 -translate-y-1/2 select-none whitespace-nowrap font-display text-[34vw] font-black leading-[0.8] tracking-tighter text-white/[0.035]"
+
+      <p className="mono-label mb-3.5 text-center text-[0.66rem] text-gold uppercase lg:text-[0.72rem]">
+        HYDROILX™ pH-NEUTRAL CAR SHAMPOO
+      </p>
+
+      <h1
+        aria-label="Whipoff"
+        data-parallax="hero-title"
+        className="relative z-[1] select-none text-center font-display text-[clamp(4rem,21vw,17rem)] font-black leading-[0.8] tracking-[-0.01em] [font-variation-settings:'opsz'_144,'SOFT'_100,'WONK'_0]"
       >
-        OFF.
+        <TitleRow text="WHIP" startDelay={150} />
+        <TitleRow text="OFF" startDelay={330} dot />
+      </h1>
+
+      {/* bottle overlaps the wordmark */}
+      <div className="pointer-events-none relative z-[2] mt-[clamp(-120px,-7vw,-64px)] h-[clamp(260px,40svh,520px)] w-[min(88vw,460px)] lg:h-[clamp(420px,62svh,640px)] lg:w-[540px]">
+        <BottleCanvas className="h-full w-full" />
+        <div
+          aria-hidden
+          className="absolute bottom-[4%] left-1/2 h-[26px] w-3/5 -translate-x-1/2 blur-[6px]"
+          style={{ background: "radial-gradient(ellipse, rgba(0,0,0,0.55), transparent 70%)" }}
+        />
       </div>
 
-      <div className="relative mx-auto max-w-xl px-5 pb-13 pt-11">
-        <p className="mb-4 text-xs font-bold uppercase tracking-[0.2em] text-green-400">
-          Hydroilx™ · pH-Neutral Car Shampoo
-        </p>
-        <h1 className="font-display text-[clamp(3.1rem,17vw,5.6rem)] font-black leading-[0.9] tracking-tighter text-white">
-          Whip it
+      <HeroFade delay={500}>
+        <p className="z-[3] mt-2.5 text-center font-display text-[clamp(1.25rem,4.4vw,1.7rem)] font-normal leading-[1.35] text-bone/80 [font-variation-settings:'opsz'_40,'SOFT'_60,'WONK'_0]">
+          For the ones who park far away,
           <br />
-          off<span className="text-green-500">.</span>
-        </h1>
-        <p className="mt-4 max-w-[35ch] text-lg leading-snug text-green-200">
-          The slick, high-foam gloss wash that lifts a fortnight of road film — and leaves
-          your wax and ceramic dead untouched.
+          <em className="text-gold">and look back.</em>
         </p>
+      </HeroFade>
 
-        <div className="mt-4">
-          <RatingStars tone="dark" />
-        </div>
-
-        <div className="my-2 flex justify-center py-3">
-          <div className="relative h-[min(46vh,420px)] w-[210px]">
-            {bottle ? (
-              <CatalogImage
-                url={bottle.url}
-                alt={bottle.alt ?? product.title}
-                name={product.title}
-                className="animate-float object-contain drop-shadow-[0_12px_16px_rgba(0,0,0,0.38)]"
-              />
-            ) : null}
-          </div>
-        </div>
-
-        {price ? (
-          <div className="mt-1 flex flex-wrap items-center gap-3">
-            <div className="flex items-baseline gap-2">
-              <span className="font-display text-3xl font-black text-white">
-                {formatPrice(price.priceCents, price.currency)}
-              </span>
-              {LAUNCH_SALE_ACTIVE ? (
-                <span className="text-base text-green-400 line-through">
-                  {formatWasPrice(price.priceCents, price.currency)}
-                </span>
-              ) : null}
-            </div>
-            {LAUNCH_SALE_ACTIVE ? (
-              <span className="inline-flex items-center rounded-full bg-danger px-3 py-1 text-xs font-bold text-white">
-                Save 20%
-              </span>
-            ) : null}
-          </div>
-        ) : null}
-
-        <div className="mt-4 flex flex-wrap gap-2.5">
+      <HeroFade delay={630}>
+        <div className="z-[3] mt-5 flex flex-wrap justify-center gap-3">
           <Link
             href="#buy"
-            className="inline-flex min-h-[54px] min-w-40 flex-1 items-center justify-center gap-2 rounded-xl bg-white px-6 text-base font-bold text-green-950 transition-colors hover:bg-green-100"
+            className="inline-flex min-h-[54px] items-center justify-center rounded-full bg-bone px-7 font-medium text-ink transition-colors hover:bg-gold"
           >
-            Shop now
+            Shop the wash{price ? ` — ${formatPrice(price.priceCents, price.currency)}` : ""}
+          </Link>
+          <Link
+            href="#formula"
+            className="inline-flex min-h-[54px] items-center justify-center rounded-full border border-bone/[0.14] bg-bone/[0.02] px-7 font-medium text-bone transition-colors hover:border-gold/55 hover:text-gold"
+          >
+            The formula
           </Link>
         </div>
+      </HeroFade>
 
-        <div className="mt-4 flex flex-wrap gap-2">
-          {FEATURE_CHIPS.map((chip) => (
+      <HeroFade delay={760}>
+        <div aria-hidden className="mt-5 flex gap-2 text-bone/60">
+          {CHIPS.map((chip) => (
             <span
               key={chip}
-              className="rounded-full border border-white/15 bg-white/[0.06] px-3 py-1.5 text-sm font-semibold text-green-100"
+              className="mono-label rounded-full border border-bone/[0.14] px-3.5 py-[7px] text-[0.66rem]"
             >
               {chip}
             </span>
           ))}
         </div>
+      </HeroFade>
 
-        <div className="mt-7 grid grid-cols-2 gap-x-4 gap-y-3.5 border-t border-white/10 pt-6 sm:grid-cols-4">
-          {STATS.map((stat) => (
-            <div key={stat.label}>
-              <div className="font-display text-2xl font-black leading-none text-white">
-                {stat.value}
-                {stat.unit ? <span className="text-sm font-bold text-green-400"> {stat.unit}</span> : null}
-              </div>
-              <div className="mt-1.5 text-[11px] font-bold uppercase tracking-wide text-green-400">
-                {stat.label}
-              </div>
-            </div>
-          ))}
-        </div>
+      <div
+        aria-hidden
+        className="mono-label absolute bottom-[22px] left-[var(--gutter)] hidden items-center gap-3 text-[0.66rem] text-bone/40 lg:flex"
+      >
+        <span className="scroll-line-sweep relative h-px w-11 overflow-hidden bg-bone/[0.14]" />
+        SCROLL
       </div>
     </section>
   );

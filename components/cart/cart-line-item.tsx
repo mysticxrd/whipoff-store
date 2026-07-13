@@ -45,7 +45,7 @@ export function CartLineItem({ line }: { line: CartLineView }) {
 
   return (
     <li className={cn("flex gap-3 py-4", isPending && "opacity-60")}>
-      <div className="relative size-16 shrink-0 overflow-hidden rounded-md border border-border bg-green-50">
+      <div className="relative size-16 shrink-0 overflow-hidden rounded-[10px] border border-bone/10 bg-ink">
         <CatalogImage
           url={line.imageUrl}
           alt={line.productTitle}
@@ -56,25 +56,23 @@ export function CartLineItem({ line }: { line: CartLineView }) {
 
       <div className="flex flex-1 flex-col gap-1">
         <div className="flex items-start justify-between gap-2">
-          <p className="font-display text-sm font-bold leading-tight text-foreground">
+          <p className="text-sm font-medium leading-tight text-foreground">
             {line.productTitle}
           </p>
-          <p className="shrink-0 font-display text-sm font-bold text-foreground">
+          <p className="shrink-0 text-sm font-medium text-foreground">
             {formatPrice(line.lineTotalMinor, line.currency)}
           </p>
         </div>
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          {line.variantTitle}
-        </p>
+        <p className="mono-label text-bone/60 uppercase">{line.variantTitle}</p>
 
         <div className="mt-2 flex items-center justify-between">
-          <div className="inline-flex items-center overflow-hidden rounded-md border-[1.5px] border-ink-300 bg-white">
+          <div className="inline-flex items-center rounded-full border border-bone/[0.14]">
             <button
               type="button"
               onClick={decrement}
               disabled={isPending}
               aria-label={line.quantity <= 1 ? "Remove from cart" : "Decrease quantity"}
-              className="grid size-10 place-items-center text-lg text-green-800 transition-colors hover:bg-green-50 disabled:pointer-events-none disabled:opacity-50"
+              className="grid size-10 place-items-center rounded-full text-lg text-bone/60 transition-colors hover:text-bone disabled:pointer-events-none disabled:opacity-50"
             >
               −
             </button>
@@ -86,7 +84,7 @@ export function CartLineItem({ line }: { line: CartLineView }) {
               onClick={increment}
               disabled={isPending || line.quantity >= 99}
               aria-label="Increase quantity"
-              className="grid size-10 place-items-center text-lg text-green-800 transition-colors hover:bg-green-50 disabled:pointer-events-none disabled:opacity-50"
+              className="grid size-10 place-items-center rounded-full text-lg text-bone/60 transition-colors hover:text-bone disabled:pointer-events-none disabled:opacity-50"
             >
               +
             </button>
@@ -95,7 +93,7 @@ export function CartLineItem({ line }: { line: CartLineView }) {
             type="button"
             onClick={remove}
             disabled={isPending}
-            className="text-xs font-semibold text-muted-foreground underline-offset-2 transition-colors hover:text-danger hover:underline disabled:pointer-events-none disabled:opacity-50"
+            className="mono-label p-1.5 text-bone/40 uppercase transition-colors hover:text-tach disabled:pointer-events-none disabled:opacity-50"
           >
             Remove
           </button>

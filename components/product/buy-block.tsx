@@ -1,17 +1,25 @@
-import { CatalogImage } from "@/components/catalog/catalog-image";
+import Image from "next/image";
+import { Eyebrow } from "@/components/home/eyebrow";
+import { Reveal } from "@/components/home/reveal";
+import { DilutionCalc } from "@/components/home/dilution-calc";
 import { VariantSelector } from "@/components/catalog/variant-selector";
 import { RatingStars } from "@/components/product/rating-stars";
 import { SpecAccordion } from "@/components/product/spec-accordion";
+import { fromPrice } from "@/lib/catalog/select";
 import type { CatalogProduct } from "@/lib/catalog/seed";
 import { FREE_SHIP_THRESHOLD_MINOR, formatPrice } from "@/lib/money";
 
-const FEATURE_CHIPS = ["pH-neutral", "Ceramic-safe", "High-foam"];
+const PERKS = [
+  "FREE SHIPPING OVER ₹999",
+  "ORDERS BY 2 PM SHIP SAME DAY",
+  "30-DAY RETURNS, UNOPENED",
+];
 
 /**
- * The purchase panel from the handoff's "BUY" section — product shot, rating, price/variant/
- * qty/CTA (VariantSelector), and spec accordions. Shared by the homepage landing (id="buy",
- * `sticky={false}` CTA — the page already has plenty below the fold) and the PDP (`sticky`
- * default, a fixed bottom bar — the page's only content).
+ * The purchase panel — design v2's SHOP section: sticky bottle visual on a
+ * pine band, buy box with size chips (VariantSelector), perks, and the
+ * dilution calculator. Shared by the homepage landing (id="buy",
+ * `sticky={false}` CTA) and the PDP (`sticky` default, fixed bottom bar).
  */
 export function BuyBlock({
   product,
@@ -23,63 +31,92 @@ export function BuyBlock({
   /** "h1" on the PDP (its only heading); "h2" on the homepage (Hero already owns the h1). */
   headingLevel?: "h1" | "h2";
 }) {
-  const primary = product.images[0];
   const Heading = headingLevel;
+  const price = fromPrice(product);
 
   return (
-    <section id="buy" className="bg-white">
-      <div className="mx-auto w-full max-w-xl px-5 py-14 pb-28">
-        <p className="text-xs font-bold uppercase tracking-widest text-green-600">
-          Add to garage
-        </p>
-        <Heading className="mt-3 font-display text-3xl font-black tracking-tight text-foreground sm:text-4xl">
-          {product.title}
-        </Heading>
+    <section id="buy" className="border-y border-bone/10 bg-pine px-[var(--gutter)] py-[var(--sect)]">
+      <div className="mx-auto grid max-w-[1200px] gap-[clamp(36px,6vw,80px)] lg:grid-cols-2 lg:items-start">
+        {/* Bottle visual — sticky alongside the buy box on desktop */}
+        <Reveal className="text-center lg:sticky lg:top-[88px]">
+          <div
+            className="grid place-items-center rounded-lg border border-bone/10 pb-[clamp(20px,4vw,40px)] pt-[clamp(30px,6vw,60px)]"
+            style={{
+              background:
+                "radial-gradient(120% 90% at 50% 10%, rgba(46,158,99,0.14), transparent 60%), var(--ink)",
+            }}
+          >
+            <div className="relative aspect-[220/460] w-[min(46vw,260px)] drop-shadow-[0_30px_40px_rgba(0,0,0,0.45)]">
+              <Image
+                src="/images/bottle-photo.png"
+                alt={`${product.title} bottle`}
+                fill
+                sizes="(min-width: 1024px) 260px, 46vw"
+                className="rounded-2xl object-cover"
+              />
+            </div>
+          </div>
+          <div className="mono-label mt-3.5 text-[0.62rem] text-bone/40 uppercase">
+            Batch № 047 — bottled 06 / 2026
+          </div>
+        </Reveal>
 
-        <div className="relative mt-6 aspect-[4/3] w-full overflow-hidden rounded-xl border border-border bg-gradient-to-br from-green-50 to-green-100 p-10">
-          <CatalogImage
-            url={primary?.url ?? `gradient:${product.slug}:0`}
-            alt={primary?.alt ?? product.title}
-            name={product.title}
-            priority
-          />
-        </div>
+        {/* Buy box */}
+        <div>
+          <Reveal>
+            <Eyebrow num="05" className="mb-[clamp(18px,3vw,28px)]">
+              The shop
+            </Eyebrow>
+          </Reveal>
+          <Reveal>
+            <Heading className="font-display text-[clamp(2.4rem,7.2vw,4.6rem)] font-medium leading-[1.04] tracking-tight">
+              {product.title}
+            </Heading>
+          </Reveal>
+          <Reveal>
+            <p className="mt-2.5 text-bone/60">One formula. Three sizes. Zero excuses left.</p>
+          </Reveal>
 
-        <div className="mt-5">
-          <RatingStars />
-        </div>
+          <Reveal className="mt-[18px]">
+            <RatingStars />
+          </Reveal>
 
-        <div className="mt-4 flex flex-wrap gap-2">
-          {FEATURE_CHIPS.map((chip) => (
-            <span
-              key={chip}
-              className="inline-flex items-center rounded-full bg-green-50 px-3 py-1.5 text-sm font-semibold text-green-800"
-            >
-              {chip}
-            </span>
-          ))}
-        </div>
+          <Reveal className="mt-[30px]">
+            <VariantSelector productId={product.id} variants={product.variants} sticky={sticky} />
+          </Reveal>
 
-        <div className="mt-6">
-          <VariantSelector productId={product.id} variants={product.variants} sticky={sticky} />
-        </div>
+          <Reveal>
+            <ul className="mono-label mt-[22px] flex flex-col gap-2 text-[0.62rem] text-bone/60">
+              {PERKS.map((perk) => (
+                <li key={perk}>
+                  <span className="text-gold">— </span>
+                  {perk}
+                </li>
+              ))}
+            </ul>
+          </Reveal>
 
-        {product.description ? (
-          <p className="mt-6 text-sm leading-relaxed text-muted-foreground">
-            {product.description}
-          </p>
-        ) : null}
+          {price ? (
+            <Reveal>
+              <DilutionCalc bottleMl={518} priceMinor={price.priceCents} currency={price.currency} />
+            </Reveal>
+          ) : null}
 
-        <div className="mt-7 flex flex-col gap-2.5">
-          <SpecAccordion title="Ingredients & specs">
-            Biodegradable surfactants, Hydroilx™ slip polymers, pH 6.5–7. 518 ml — makes up to
-            ~25 washes at 1:256 dilution. Vegan, never tested on animals.
-          </SpecAccordion>
-          <SpecAccordion title="Shipping & returns">
-            Free delivery across India over {formatPrice(FREE_SHIP_THRESHOLD_MINOR, "INR")},
-            dispatched same day on orders before 2pm. 30-day returns on unopened bottles, no
-            questions asked.
-          </SpecAccordion>
+          {product.description ? (
+            <p className="mt-6 text-sm leading-relaxed text-bone/60">{product.description}</p>
+          ) : null}
+
+          <div className="mt-7">
+            <SpecAccordion title="Ingredients & specs">
+              Biodegradable surfactants, Hydroilx™ slip polymers, pH 6.5–7. 518 ml — makes up to
+              ~25 washes at 1:256 dilution. Vegan, never tested on animals.
+            </SpecAccordion>
+            <SpecAccordion title="Shipping & returns">
+              Free delivery across India over {formatPrice(FREE_SHIP_THRESHOLD_MINOR, "INR")},
+              dispatched same day on orders before 2pm. 30-day returns on unopened bottles, no
+              questions asked.
+            </SpecAccordion>
+          </div>
         </div>
       </div>
     </section>

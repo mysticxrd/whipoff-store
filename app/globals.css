@@ -1,121 +1,130 @@
 @import "tailwindcss";
 
+/* Lenis smooth scroll (see components/layout/smooth-scroll.tsx) — official base
+   styles. Lenis toggles these `lenis` classes on <html>; the `scroll-behavior:auto`
+   override keeps native CSS smooth-scroll from fighting Lenis's per-frame updates. */
+html.lenis,
+html.lenis body { height: auto; }
+.lenis.lenis-smooth { scroll-behavior: auto !important; }
+.lenis.lenis-smooth [data-lenis-prevent] { overscroll-behavior: contain; }
+.lenis.lenis-stopped { overflow: hidden; }
+.lenis.lenis-smooth iframe { pointer-events: none; }
+
 /*
- * Whipoff design tokens — from the Claude Design → Claude Code handoff
- * (handoff/uploads/whipoff-tokens.css, mirrored in _config/design_system.md).
+ * Whipoff design tokens — v2 "racing green" design (handoff/design-v2/css/main.css,
+ * mirrored in _config/design_system.md).
  * Architecture: PRIMITIVES (raw values) → SEMANTIC ROLES → shadcn bridge.
- * Components reference the semantic/role tokens or the primitive scale — never
- * hardcoded hex. Light-only: the handoff ships no dark palette, so dark mode is
- * deferred until the designer provides one (see design_system.md).
+ * Components reference the semantic/role tokens or the primitive palette — never
+ * hardcoded hex. Dark-only: v2 ships a single dark theme (near-black green ground,
+ * bone text, champagne-gold accents); no light palette exists in the handoff.
  */
 :root {
-  /* 1. PRIMITIVE — Forest (brand) scale; 800 = box green, 600 = liquid emerald */
-  --green-50:  #f1f8f3;
-  --green-100: #dceee2;
-  --green-200: #bbdcc8;
-  --green-300: #8fc3a6;
-  --green-400: #5ca37e;
-  --green-500: #2e8159;
-  --green-600: #1e7a4d;
-  --green-700: #17613d;
-  --green-800: #143a2b;
-  --green-900: #0e2a20;
-  --green-950: #0a1f17;
+  /* 1. PRIMITIVE — v2 palette. Surfaces step ink → pine → moss → fern (darkest to
+     lightest); bone is the text/CTA cream; gold is hairline-accent only; tach is
+     reserved for instrument/gauge details. */
+  --ink:     #071410;
+  --pine:    #0b1f16;
+  --moss:    #12291c;
+  --fern:    #1b3a28;
+  --bone:    #f0ead9;
+  --bone-80: rgba(240, 234, 217, 0.8);
+  --bone-60: rgba(240, 234, 217, 0.6);
+  --bone-40: rgba(240, 234, 217, 0.4);
+  --bone-14: rgba(240, 234, 217, 0.14);
+  --bone-08: rgba(240, 234, 217, 0.08);
+  --gold:     #c2a469;
+  --gold-dim: rgba(194, 164, 105, 0.55);
+  --emerald:  #2e9e63;
+  --tach:     #e4572e;
+  --white:    #ffffff;
 
-  /* 2. PRIMITIVE — Ink (green-tinted neutral) scale; 900 = cap black, 50 = ground */
-  --ink-950: #0d110f;
-  --ink-900: #141815;
-  --ink-800: #202622;
-  --ink-700: #313833;
-  --ink-600: #4a524c;
-  --ink-500: #66706a;
-  --ink-400: #8b958e;
-  --ink-300: #b4bcb6;
-  --ink-200: #d6dbd6;
-  --ink-100: #e9ece8;
-  --ink-50:  #f5f7f3;
-  --white:   #ffffff;
+  /* 2. PRIMITIVE — status hues (tuned for the dark ground: readable 400-ish
+     foregrounds, translucent tint backgrounds instead of pastel *-50 fills) */
+  --success-fg: #4dbd82; --success-tint: rgba(46, 158, 99, 0.14);
+  --danger-fg:  #e06a52; --danger-tint:  rgba(194, 59, 48, 0.16);
+  --warning-fg: #d9a94a; --warning-tint: rgba(194, 135, 26, 0.16);
+  --info-fg:    #5ba3c0; --info-tint:    rgba(44, 110, 138, 0.18);
 
-  /* 3. PRIMITIVE — status hues (tuned to coexist with green) */
-  --success-600: #2e9e63; --success-50: #e6f5ec;
-  --danger-600:  #c23b30; --danger-50:  #fbeae8;
-  --warning-600: #c2871a; --warning-50: #fbf1df;
-  --info-600:    #2c6e8a; --info-50:    #e5f0f4;
+  /* 3. SEMANTIC ROLE TOKENS (design vocabulary — names unchanged from v1) */
+  --color-bg:              var(--ink);
+  --color-surface:         var(--pine);
+  --color-surface-sunken:  var(--moss);
+  --color-surface-inverse: var(--bone);
+  --color-text:            var(--bone);
+  --color-text-secondary:  var(--bone-60);
+  --color-text-muted:      var(--bone-40);
+  --color-text-inverse:    var(--ink);
+  --color-text-on-brand:   var(--ink);
+  --color-text-link:       var(--gold);
+  --color-border:          var(--bone-14);
+  --color-border-strong:   var(--bone-40);
+  --color-divider:         var(--bone-08);
+  /* Brand CTA in v2 is the bone "solid" button (ink text, gold on hover). */
+  --color-brand:           var(--bone);
+  --color-brand-hover:     var(--gold);
+  --color-brand-active:    var(--gold);
+  --color-brand-subtle:    var(--bone-08);
+  --color-accent:          var(--gold);
+  --color-focus:           var(--gold);
+  --color-price:           var(--bone);
+  --color-price-sale:      var(--tach);
 
-  /* 4. SEMANTIC ROLE TOKENS (design vocabulary) */
-  --color-bg:              var(--ink-50);
-  --color-surface:         var(--white);
-  --color-surface-sunken:  var(--ink-100);
-  --color-surface-inverse: var(--green-900);
-  --color-text:            var(--ink-900);
-  --color-text-secondary:  var(--ink-500);
-  --color-text-muted:      var(--ink-400);
-  --color-text-inverse:    var(--white);
-  --color-text-on-brand:   var(--white);
-  --color-text-link:       var(--green-700);
-  --color-border:          var(--ink-200);
-  --color-border-strong:   var(--ink-300);
-  --color-divider:         var(--ink-100);
-  --color-brand:           var(--green-800);
-  --color-brand-hover:     var(--green-900);
-  --color-brand-active:    var(--green-950);
-  --color-brand-subtle:    var(--green-50);
-  --color-accent:          var(--green-600);
-  --color-focus:           var(--green-600);
-  --color-price:           var(--ink-900);
-  --color-price-sale:      var(--danger-600);
-
-  /* 5. TYPOGRAPHY — Fraunces (display) + Inter (sans); next/font sets the *var* names */
-  --font-sans:    var(--font-inter), system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  /* 4. TYPOGRAPHY — Fraunces (display) + Archivo (sans) + Space Mono (mono);
+     next/font sets the *var* names. Fraunces is used with per-element
+     font-variation-settings (opsz/SOFT/WONK) in components. */
+  --font-sans:    var(--font-archivo), system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-display: var(--font-fraunces), "Playfair Display", Georgia, "Times New Roman", serif;
-  --font-mono:    ui-monospace, "SF Mono", "Space Mono", Menlo, Consolas, monospace;
+  --font-mono:    var(--font-space-mono), ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 
   --text-display: clamp(2.5rem, 9vw, 4rem);
   --text-h1:      clamp(2rem, 7vw, 3rem);
   --text-h2:      clamp(1.5rem, 5vw, 2rem);
   --text-h3:      1.25rem;
   --text-lg:      1.125rem;
-  --text-base:    1rem;
+  --text-base:    1.0625rem; /* v2 body floor: 17px, mobile readable */
   --text-sm:      0.875rem;
   --text-xs:      0.75rem;
 
-  --leading-tight: 1.05; --leading-snug: 1.2; --leading-normal: 1.5; --leading-relaxed: 1.65;
-  --tracking-tight: -0.02em; --tracking-normal: 0; --tracking-wide: 0.08em;
+  --leading-tight: 1.05; --leading-snug: 1.2; --leading-normal: 1.7; --leading-relaxed: 1.75;
+  --tracking-tight: -0.015em; --tracking-normal: 0.01em; --tracking-wide: 0.14em;
 
-  /* 6. SPACING / SIZING */
-  --gutter: 1rem;
+  /* 5. SPACING / SIZING */
+  --gutter: clamp(20px, 5vw, 72px);
+  --sect: clamp(96px, 15vw, 200px);
   --container-max: 1100px;
   --tap-min: 44px;
+  --nav-h: 64px;
 
-  /* 7. RADII — design semantics (md = buttons/inputs, lg = cards, xl = sheets) */
+  /* 6. RADII — v2 cards sit at 20px; controls are pill-shaped */
   --radius-xs: 4px;
   --radius-sm: 8px;
   --radius-md: 12px;
-  --radius-lg: 16px;
-  --radius-xl: 24px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
   --radius-pill: 999px;
 
-  /* 8. ELEVATION — green-tinted soft shadows */
-  --shadow-xs:  0 1px 2px rgba(14, 42, 32, 0.06);
-  --shadow-sm:  0 2px 8px rgba(14, 42, 32, 0.08);
-  --shadow-md:  0 6px 18px rgba(14, 42, 32, 0.10);
-  --shadow-lg:  0 14px 34px rgba(10, 31, 23, 0.16);
-  --shadow-cta: 0 -6px 24px rgba(10, 31, 23, 0.12);
-  --ring-focus: 0 0 0 3px rgba(30, 122, 77, 0.40);
+  /* 7. ELEVATION — near-black shadows for the dark ground */
+  --shadow-xs:  0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-sm:  0 2px 8px rgba(0, 0, 0, 0.35);
+  --shadow-md:  0 6px 18px rgba(0, 0, 0, 0.4);
+  --shadow-lg:  0 14px 34px rgba(0, 0, 0, 0.5);
+  --shadow-cta: 0 -6px 24px rgba(0, 0, 0, 0.45);
+  --ring-focus: 0 0 0 3px rgba(194, 164, 105, 0.45);
 
-  /* 9. MOTION */
+  /* 8. MOTION */
   --dur-fast: 120ms; --dur-base: 200ms; --dur-slow: 320ms;
   --ease-standard: cubic-bezier(0.2, 0.7, 0.2, 1);
-  --ease-out:      cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-lux: cubic-bezier(0.65, 0, 0.15, 1);
 
-  /* 10. shadcn/ui BRIDGE — map shadcn semantic names onto the design roles so
+  /* 9. shadcn/ui BRIDGE — map shadcn semantic names onto the design roles so
      every existing primitive (button, card, input, badge…) adopts the brand. */
   --radius: var(--radius-md);
   --background: var(--color-bg);
   --foreground: var(--color-text);
   --card: var(--color-surface);
   --card-foreground: var(--color-text);
-  --popover: var(--color-surface);
+  --popover: var(--moss);
   --popover-foreground: var(--color-text);
   --primary: var(--color-brand);
   --primary-foreground: var(--color-text-on-brand);
@@ -123,9 +132,9 @@
   --secondary-foreground: var(--color-text);
   --muted: var(--color-surface-sunken);
   --muted-foreground: var(--color-text-secondary);
-  --accent: var(--color-brand-subtle);
-  --accent-foreground: var(--color-brand);
-  --destructive: var(--danger-600);
+  --accent: var(--bone-08);
+  --accent-foreground: var(--color-text);
+  --destructive: var(--danger-fg);
   --destructive-foreground: var(--white);
   --border: var(--color-border);
   --input: var(--color-border);
@@ -139,38 +148,24 @@
 }
 
 @theme inline {
-  /* Primitive palette as Tailwind colors (bg-green-800, text-ink-500, …) */
-  --color-green-50: var(--green-50);
-  --color-green-100: var(--green-100);
-  --color-green-200: var(--green-200);
-  --color-green-300: var(--green-300);
-  --color-green-400: var(--green-400);
-  --color-green-500: var(--green-500);
-  --color-green-600: var(--green-600);
-  --color-green-700: var(--green-700);
-  --color-green-800: var(--green-800);
-  --color-green-900: var(--green-900);
-  --color-green-950: var(--green-950);
-  --color-ink-50: var(--ink-50);
-  --color-ink-100: var(--ink-100);
-  --color-ink-200: var(--ink-200);
-  --color-ink-300: var(--ink-300);
-  --color-ink-400: var(--ink-400);
-  --color-ink-500: var(--ink-500);
-  --color-ink-600: var(--ink-600);
-  --color-ink-700: var(--ink-700);
-  --color-ink-800: var(--ink-800);
-  --color-ink-900: var(--ink-900);
-  --color-ink-950: var(--ink-950);
+  /* v2 primitive palette as Tailwind colors (bg-pine, text-bone/60, border-gold…) */
+  --color-ink: var(--ink);
+  --color-pine: var(--pine);
+  --color-moss: var(--moss);
+  --color-fern: var(--fern);
+  --color-bone: var(--bone);
+  --color-gold: var(--gold);
+  --color-emerald: var(--emerald);
+  --color-tach: var(--tach);
   --color-white: var(--white);
-  --color-success: var(--success-600);
-  --color-success-bg: var(--success-50);
-  --color-danger: var(--danger-600);
-  --color-danger-bg: var(--danger-50);
-  --color-warning: var(--warning-600);
-  --color-warning-bg: var(--warning-50);
-  --color-info: var(--info-600);
-  --color-info-bg: var(--info-50);
+  --color-success: var(--success-fg);
+  --color-success-bg: var(--success-tint);
+  --color-danger: var(--danger-fg);
+  --color-danger-bg: var(--danger-tint);
+  --color-warning: var(--warning-fg);
+  --color-warning-bg: var(--warning-tint);
+  --color-info: var(--info-fg);
+  --color-info-bg: var(--info-tint);
 
   /* shadcn semantic colors */
   --color-background: var(--background);
@@ -220,19 +215,61 @@
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
-    font-size: 1rem;
-    line-height: 1.5;
+    font-size: var(--text-base);
+    line-height: var(--leading-normal);
+    font-weight: 380;
+    letter-spacing: var(--tracking-normal);
+    overflow-x: clip;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
+  ::selection { background: var(--bone); color: var(--ink); }
+  :focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
   /* Display headings use Fraunces via the .font-display utility or this base. */
-  h1, h2, h3 { font-family: var(--font-display); letter-spacing: var(--tracking-tight); }
+  h1, h2, h3 {
+    font-family: var(--font-display);
+    letter-spacing: var(--tracking-tight);
+    font-variation-settings: "opsz" 144, "SOFT" 70, "WONK" 0;
+  }
   /* Native accordions (SpecAccordion) draw their own "+" glyph — suppress the default marker. */
   summary { list-style: none; }
   summary::-webkit-details-marker { display: none; }
+  /* Thin, quiet scrollbar (v2) */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: var(--ink); }
+  ::-webkit-scrollbar-thumb { background: var(--fern); border-radius: 99px; border: 2px solid var(--ink); }
 }
 
-/* Landing-page decorative motion (Marquee, Hero's floating bottle). Plain keyframes/utilities —
+/* v2 shared type helpers — mono label + gold eyebrow, used across sections. */
+.mono-label {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  font-weight: 400;
+}
+.eyebrow {
+  color: var(--gold);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.eyebrow::before {
+  content: "";
+  width: 34px;
+  height: 1px;
+  background: var(--gold-dim);
+  flex: none;
+}
+.eyebrow--center { justify-content: center; }
+.eyebrow--center::after {
+  content: "";
+  width: 34px;
+  height: 1px;
+  background: var(--gold-dim);
+  flex: none;
+}
+
+/* Landing-page decorative motion (Marquee, Hero). Plain keyframes/utilities —
    not driven by the --dur-* tokens above, so reduced-motion is handled explicitly below. */
 @keyframes wo-marquee {
   from { transform: translateX(0); }
@@ -245,12 +282,132 @@
   78% { transform: translateY(-7px) rotate(1.8deg); }
   100% { transform: translateY(0) rotate(-1.6deg); }
 }
-.animate-marquee { animation: wo-marquee 26s linear infinite; }
+/* Breathe via the `scale` property only — the halo's horizontal centering is
+   owned by the `-translate-x-1/2` utility, which in Tailwind v4 compiles to the
+   independent `translate` property. Animating `transform` here would stack a
+   second translateX(-50%) on top of it and shove the halo off to the left. */
+@keyframes wo-halo-breathe {
+  from { scale: 0.96; opacity: 0.85; }
+  to { scale: 1.06; opacity: 1; }
+}
+.animate-marquee { animation: wo-marquee 36s linear infinite; }
 .animate-float {
   animation: wo-float 4.5s ease-in-out infinite;
   transform-origin: 50% 72%;
   will-change: transform;
 }
+.animate-halo { animation: wo-halo-breathe 7s ease-in-out infinite alternate; }
 @media (prefers-reduced-motion: reduce) {
-  .animate-marquee, .animate-float { animation: none; }
+  .animate-marquee, .animate-float, .animate-halo { animation: none; }
+}
+
+/* Preloader gate — <Preloader> sets html[data-wo-loading] for the duration of
+   the loading curtain: scroll is locked and the hero's entrance (char-rise
+   keyframes + already-is-in reveals) is held so the intro plays only once the
+   curtain lifts and the attribute is removed. */
+html[data-wo-loading] { overflow: hidden; }
+html[data-wo-loading] .char-rise { animation-play-state: paused; }
+html[data-wo-loading] .reveal.is-in { opacity: 0; transform: translateY(26px); }
+
+/* Scroll reveals — <Reveal> (IntersectionObserver) toggles .is-in. */
+.reveal {
+  opacity: 0;
+  transform: translateY(26px);
+  transition: opacity 0.9s var(--ease-out), transform 0.9s var(--ease-out);
+  transition-delay: var(--reveal-delay, 0ms);
+}
+.reveal.is-in { opacity: 1; transform: none; }
+
+/* Masked line rise — hero wordmark chars + manifesto lines. Chars animate on
+   load (hero is above the fold); manifesto lines transition on .is-in. */
+@keyframes wo-char-rise {
+  to { transform: translateY(0); }
+}
+.char-rise {
+  display: inline-block;
+  transform: translateY(110%);
+  animation: wo-char-rise 1.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation-delay: var(--char-delay, 0ms);
+}
+.line-mask { display: block; overflow: hidden; }
+.line-rise {
+  display: block;
+  transform: translateY(110%);
+  transition: transform 1.25s cubic-bezier(0.16, 1, 0.3, 1);
+  transition-delay: var(--reveal-delay, 0ms);
+}
+.is-in .line-rise, .is-in.line-rise { transform: translateY(0); }
+
+/* Hero scroll cue */
+@keyframes wo-scroll-line {
+  0% { transform: translateX(-100%); }
+  55%, 100% { transform: translateX(100%); }
+}
+.scroll-line-sweep::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--gold);
+  animation: wo-scroll-line 2.2s var(--ease-lux) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal, .line-rise { opacity: 1; transform: none; transition: none; }
+  .char-rise { animation: none; transform: translateY(0); }
+  .scroll-line-sweep::after { animation: none; }
+}
+
+/* Horizontal snap tracks (gauges, ritual) */
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* Shared range styling (gloss lab + dilution calc) */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 44px; /* generous touch target */
+  background: transparent;
+  cursor: pointer;
+}
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 2px;
+  background: var(--bone-14);
+  border-radius: 99px;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 26px;
+  height: 26px;
+  margin-top: -12px;
+  border-radius: 50%;
+  background: var(--bone);
+  border: 6px solid var(--ink);
+  box-shadow: 0 0 0 1px var(--bone-40);
+  transition: transform 0.25s var(--ease-out);
+}
+input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.15); }
+input[type="range"]::-moz-range-track {
+  height: 2px;
+  background: var(--bone-14);
+  border-radius: 99px;
+}
+input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--bone);
+  border: 6px solid var(--ink);
+  box-shadow: 0 0 0 1px var(--bone-40);
+}
+
+/* Film grain — fixed decorative overlay (layout.tsx renders the svg filter defs) */
+.grain {
+  position: fixed;
+  inset: 0; /* was inset:-50% + 200%×200% — 4× viewport of filtered/blended backing store */
+  pointer-events: none;
+  z-index: 150;
+  opacity: 0.05;
+  filter: url(#grain-filter);
+  mix-blend-mode: overlay;
 }

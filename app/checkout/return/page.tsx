@@ -48,7 +48,10 @@ export default async function CheckoutReturnPage({
         <p className="mt-2 max-w-[38ch] text-sm leading-relaxed text-muted-foreground">
           Payment received — your receipt is on its way to your inbox.
         </p>
-        <Link href="/products" className={cn(buttonVariants({ size: "lg" }), "mt-6")}>
+        <Link
+          href="/"
+          className={cn(buttonVariants({ size: "lg" }), "mt-6")}
+        >
           Continue shopping
         </Link>
       </StatusShell>
@@ -74,7 +77,7 @@ export default async function CheckoutReturnPage({
           Try again
         </Link>
         <Link
-          href="/products"
+          href="/"
           className={cn(buttonVariants({ variant: "outline", size: "lg" }), "mt-2")}
         >
           Back to shop
@@ -96,7 +99,7 @@ export default async function CheckoutReturnPage({
         We&rsquo;re confirming your payment. This page updates on refresh — and we&rsquo;ll
         email you the moment it settles.
       </p>
-      <Link href="/products" className={cn(buttonVariants({ size: "lg" }), "mt-6")}>
+      <Link href="/" className={cn(buttonVariants({ size: "lg" }), "mt-6")}>
         Continue shopping
       </Link>
     </StatusShell>

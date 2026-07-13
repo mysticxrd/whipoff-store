@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-/** Native <details>/<summary> — matches the handoff exactly, no extra shadcn primitive needed. */
+/** Native <details>/<summary> — design v2: hairline rows, gold "+" that rotates open. */
 export function SpecAccordion({
   title,
   children,
@@ -9,14 +9,17 @@ export function SpecAccordion({
   children: ReactNode;
 }) {
   return (
-    <details className="group overflow-hidden rounded-md border border-border bg-white">
-      <summary className="flex min-h-13 cursor-pointer items-center justify-between px-4 py-3 text-sm font-bold text-foreground">
+    <details className="group border-t border-bone/10 last:border-b">
+      <summary className="flex min-h-11 cursor-pointer items-center justify-between gap-5 py-4 text-sm font-medium text-foreground transition-colors hover:text-gold">
         {title}
-        <span className="text-lg leading-none text-green-600 transition-transform group-open:rotate-45" aria-hidden>
+        <span
+          className="text-lg leading-none text-gold transition-transform group-open:rotate-45"
+          aria-hidden
+        >
           +
         </span>
       </summary>
-      <div className="px-4 pb-4 text-sm leading-relaxed text-muted-foreground">{children}</div>
+      <div className="max-w-[620px] pb-5 text-sm leading-relaxed text-bone/60">{children}</div>
     </details>
   );
 }

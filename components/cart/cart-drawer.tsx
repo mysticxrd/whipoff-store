@@ -71,7 +71,7 @@ export function CartDrawer() {
         isOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0",
       )}
     >
-      <div onClick={close} aria-hidden className="absolute inset-0 bg-ink-900/40" />
+      <div onClick={close} aria-hidden className="absolute inset-0 bg-[rgba(4,10,8,0.6)] backdrop-blur-[3px]" />
 
       <div
         ref={panelRef}
@@ -79,12 +79,15 @@ export function CartDrawer() {
         aria-modal="true"
         aria-label="Your cart"
         className={cn(
-          "absolute inset-y-0 right-0 flex h-full w-[min(460px,100vw)] flex-col bg-white shadow-lg transition-transform duration-300 ease-out",
+          "absolute inset-y-0 right-0 flex h-full w-[min(460px,100vw)] flex-col border-l border-bone/10 bg-pine shadow-lg transition-transform duration-300 ease-out",
           isOpen ? "translate-x-0" : "translate-x-full",
         )}
       >
-        <div className="flex items-center justify-between border-b border-border px-5 py-4">
-          <h2 className="font-display text-lg font-black text-foreground">Your cart</h2>
+        <div className="flex items-center justify-between border-b border-bone/10 px-5 py-4">
+          <h2 className="font-display text-xl font-medium text-foreground">
+            Your kit{" "}
+            <span className="mono-label text-bone/40">({cart.itemCount})</span>
+          </h2>
           <button
             type="button"
             onClick={close}
@@ -97,15 +100,18 @@ export function CartDrawer() {
 
         {hasItems ? (
           <>
-            <div className="border-b border-border bg-green-50 px-5 py-3">
-              <p className="font-mono text-xs font-semibold text-green-800">
+            <div className="border-b border-bone/10 px-5 py-4">
+              <p className="mono-label text-bone/60 uppercase">
                 {freeShipUnlocked
                   ? "Free shipping unlocked."
-                  : `Add ${formatPrice(cart.freeShipRemainingMinor, cart.currency)} more for free shipping.`}
+                  : `${formatPrice(cart.freeShipRemainingMinor, cart.currency)} away from free shipping`}
               </p>
-              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-green-100">
+              <div className="mt-2.5 h-[3px] overflow-hidden rounded-full bg-bone/10">
                 <div
-                  className="h-full rounded-full bg-green-600 transition-[width] duration-300"
+                  className={cn(
+                    "h-full rounded-full transition-[width,background-color] duration-300",
+                    freeShipUnlocked ? "bg-emerald" : "bg-gold",
+                  )}
                   style={{
                     width: `${Math.min(
                       100,
@@ -116,19 +122,19 @@ export function CartDrawer() {
               </div>
             </div>
 
-            <ul className="flex-1 divide-y divide-border overflow-y-auto px-5">
+            <ul className="flex-1 divide-y divide-bone/10 overflow-y-auto px-5">
               {cart.lines.map((line) => (
                 <CartLineItem key={line.variantId} line={line} />
               ))}
             </ul>
 
-            <div className="border-t border-border px-5 py-4">
+            <div className="border-t border-bone/10 px-5 py-4">
               <dl className="space-y-1.5 font-mono text-sm">
-                <div className="flex justify-between text-muted-foreground">
+                <div className="flex justify-between text-bone/60">
                   <dt>Subtotal</dt>
                   <dd>{formatPrice(cart.subtotalMinor, cart.currency)}</dd>
                 </div>
-                <div className="flex justify-between text-muted-foreground">
+                <div className="flex justify-between text-bone/60">
                   <dt>Shipping</dt>
                   <dd>
                     {cart.shippingMinor === 0
@@ -136,7 +142,7 @@ export function CartDrawer() {
                       : formatPrice(cart.shippingMinor, cart.currency)}
                   </dd>
                 </div>
-                <div className="flex justify-between border-t border-border pt-1.5 font-display text-base font-bold text-foreground">
+                <div className="flex justify-between border-t border-bone/10 pt-1.5 font-display text-base font-semibold text-foreground">
                   <dt>Total</dt>
                   <dd>{formatPrice(cart.totalMinor, cart.currency)}</dd>
                 </div>
@@ -152,17 +158,17 @@ export function CartDrawer() {
           </>
         ) : (
           <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
-            <div className="grid size-16 place-items-center rounded-full bg-green-50 text-green-600">
+            <div className="grid size-16 place-items-center rounded-full bg-bone/10 text-gold">
               <ShoppingCart className="size-7" strokeWidth={1.7} />
             </div>
-            <h3 className="mt-5 font-display text-xl font-black text-foreground">
-              Your garage is empty.
+            <h3 className="mt-5 font-display text-xl font-medium text-foreground">
+              Nothing in the kit yet.
             </h3>
-            <p className="mt-2 max-w-[30ch] text-sm leading-relaxed text-muted-foreground">
-              Browse the catalog and line up your foam.
+            <p className="mt-2 max-w-[30ch] font-display text-base italic leading-relaxed text-gold">
+              The whip is waiting.
             </p>
             <Link
-              href="/products"
+              href="/"
               onClick={close}
               className={cn(buttonVariants({ variant: "outline", size: "lg" }), "mt-6")}
             >
