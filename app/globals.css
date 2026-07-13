@@ -404,9 +404,7 @@ input[type="range"]::-moz-range-thumb {
 /* Film grain — fixed decorative overlay (layout.tsx renders the svg filter defs) */
 .grain {
   position: fixed;
-  inset: -50%;
-  width: 200%;
-  height: 200%;
+  inset: 0; /* was inset:-50% + 200%×200% — 4× viewport of filtered/blended backing store */
   pointer-events: none;
   z-index: 150;
   opacity: 0.05;

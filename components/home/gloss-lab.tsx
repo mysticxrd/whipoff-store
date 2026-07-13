@@ -133,9 +133,14 @@ export function GlossLab() {
     const slider = sliderRef.current;
     if (!canvas || !slider) return;
 
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
     const gl = canvas.getContext("webgl", { antialias: false, alpha: false });
-    if (!gl) {
+    const fallback = () => {
       canvas.style.background = "linear-gradient(160deg,#123524,#071410)";
+    };
+    if (!gl) {
+      fallback();
       return;
     }
 
@@ -143,13 +148,29 @@ export function GlossLab() {
       const sh = gl!.createShader(type)!;
       gl!.shaderSource(sh, src);
       gl!.compileShader(sh);
+      if (!gl!.getShaderParameter(sh, gl!.COMPILE_STATUS)) {
+        gl!.deleteShader(sh);
+        return null;
+      }
       return sh;
     }
 
+    const vs = compile(gl.VERTEX_SHADER, VERT);
+    const fs = compile(gl.FRAGMENT_SHADER, FRAG);
     const prog = gl.createProgram()!;
-    gl.attachShader(prog, compile(gl.VERTEX_SHADER, VERT));
-    gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, FRAG));
+    if (!vs || !fs) {
+      fallback();
+      gl.deleteProgram(prog);
+      return;
+    }
+    gl.attachShader(prog, vs);
+    gl.attachShader(prog, fs);
     gl.linkProgram(prog);
+    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+      fallback();
+      gl.deleteProgram(prog);
+      return;
+    }
     gl.useProgram(prog);
 
     const buf = gl.createBuffer();
@@ -235,16 +256,22 @@ export function GlossLab() {
     });
     io.observe(canvas);
 
+    // Size once up front; the ResizeObserver handles every change after this.
+    resize();
+
     let lastShown = -1;
     const t0 = performance.now();
     let raf = 0;
     function frame() {
       raf = requestAnimationFrame(frame);
       if (!inView || document.hidden) return;
-      resize();
-      shownGloss += (glossRef.current - shownGloss) * 0.09;
+      // reduce-motion: snap to the target gloss (no eased drift) and freeze the
+      // time-driven light-bar sweep — the only motion left is the user's own drag.
+      shownGloss = reduceMotion
+        ? glossRef.current
+        : shownGloss + (glossRef.current - shownGloss) * 0.09;
       gl!.uniform2f(uRes, canvas!.width, canvas!.height);
-      gl!.uniform1f(uTime, (performance.now() - t0) / 1000);
+      gl!.uniform1f(uTime, reduceMotion ? 0 : (performance.now() - t0) / 1000);
       gl!.uniform1f(uGloss, shownGloss);
       gl!.drawArrays(gl!.TRIANGLES, 0, 3);
 
