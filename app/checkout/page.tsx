@@ -5,21 +5,23 @@ import { ArrowLeft } from "lucide-react";
 import { getCart } from "@/lib/cart/service";
 import { clientEnv } from "@/lib/env";
 import { formatPrice } from "@/lib/money";
-import { CheckoutEmbed } from "@/components/checkout/checkout-embed";
+import { CheckoutForm } from "@/components/checkout/checkout-form";
 
 export const metadata: Metadata = { title: "Checkout" };
 
 /**
- * /checkout — Stripe owns the entire payment surface (Embedded Checkout mounted below);
- * this page is only the framing: a way back, a totals strip for drawer-parity confidence,
- * and the embed. Minimal distractions by design (design_system.md checkout pattern).
- * Guest-accessible on purpose (Gate-1 locked decision) — NOT in PROTECTED_PREFIXES.
+ * /checkout — the shipping/contact form plus the Razorpay Standard Checkout launcher
+ * (Razorpay's modal owns the PAYMENT surface — cards & UPI — but not addresses, so the
+ * "Ship to" form lives here). This page is only the framing: a way back, a totals strip for
+ * drawer-parity confidence, and the form. Minimal distractions by design (design_system.md
+ * checkout pattern). Guest-accessible on purpose (Gate-1 locked decision) — NOT in
+ * PROTECTED_PREFIXES.
  */
 export default async function CheckoutPage() {
   const cart = await getCart();
   if (cart.lines.length === 0) redirect("/");
 
-  const configured = Boolean(clientEnv.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
+  const configured = Boolean(clientEnv.NEXT_PUBLIC_RAZORPAY_KEY_ID);
 
   return (
     <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-6 sm:py-10">
@@ -45,15 +47,15 @@ export default async function CheckoutPage() {
 
       {configured ? (
         <div className="mt-6">
-          <CheckoutEmbed />
+          <CheckoutForm />
         </div>
       ) : (
-        <div className="mt-6 rounded-lg border border-border bg-green-50 p-5">
+        <div className="mt-6 rounded-lg border border-border bg-pine p-5">
           <h2 className="font-display text-base font-bold text-foreground">
             Payments aren&rsquo;t switched on yet.
           </h2>
           <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-            This environment has no Stripe key configured, so checkout can&rsquo;t start.
+            This environment has no Razorpay key configured, so checkout can&rsquo;t start.
             Your cart is safe — come back once payments are live.
           </p>
         </div>

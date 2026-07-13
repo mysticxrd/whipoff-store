@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/supabase/types";
 
 // Slice 5 — server/email/order-confirmation.ts, the webhook's post-commit side-effect.
+// Re-keyed to provider_order_id for the Razorpay swap; behaviour is otherwise unchanged.
 // Contracts under test (PRD AC 3/4/5 + Gate-1 #5 prefer-delivery):
 //   * exactly-once: a set marker (or non-paid / missing order) means NO send and NO rpc;
 //   * ordering: send resolves BEFORE mark_order_confirmation_email_sent is called;
@@ -24,9 +25,9 @@ vi.mock("@sentry/nextjs", () => ({
 }));
 vi.mock("@/lib/env", () => ({ clientEnv: { NEXT_PUBLIC_APP_URL: "https://store.test" } }));
 
-import { sendOrderConfirmationForSession } from "@/server/email/order-confirmation";
+import { sendOrderConfirmationForOrder } from "@/server/email/order-confirmation";
 
-const SESSION_ID = "cs_test_slice5";
+const ORDER_ID = "order_MNabc123XYZ";
 
 const paidOrder = {
   id: "ord_1",
@@ -35,8 +36,8 @@ const paidOrder = {
   status: "paid",
   currency: "INR",
   amount_subtotal_minor: 47900,
-  amount_shipping_minor: 0,
-  amount_tax_minor: 4900,
+  amount_shipping_minor: 4900,
+  amount_tax_minor: 0,
   amount_total_minor: 52800,
   shipping_name: "Asha Kumar",
   shipping_address: { line1: "12 MG Road", city: "Bengaluru", country: "IN" },
@@ -108,7 +109,7 @@ beforeEach(() => {
   h.sendEmail.mockResolvedValue({ ok: true, providerId: "email_abc" });
 });
 
-describe("sendOrderConfirmationForSession", () => {
+describe("sendOrderConfirmationForOrder", () => {
   it("happy path (guest): sends to the captured email, THEN marks, then emits the sent event", async () => {
     const { admin, log } = makeAdmin({ log: [] });
     h.sendEmail.mockImplementation(async () => {
@@ -116,7 +117,7 @@ describe("sendOrderConfirmationForSession", () => {
       return { ok: true, providerId: "email_abc" };
     });
 
-    await sendOrderConfirmationForSession(admin, SESSION_ID);
+    await sendOrderConfirmationForOrder(admin, ORDER_ID);
 
     expect(h.sendEmail).toHaveBeenCalledTimes(1);
     expect(h.sendEmail.mock.calls[0]![0].to).toBe("buyer@example.com");
@@ -127,7 +128,7 @@ describe("sendOrderConfirmationForSession", () => {
     ]);
     expect(h.captureServerEvent).toHaveBeenCalledWith(
       "order_confirmation_email_sent",
-      { session_id: SESSION_ID, value_minor: 52800, currency: "INR" },
+      { provider_order_id: ORDER_ID, value_minor: 52800, currency: "INR" },
       "guest",
     );
     expect(h.captureMessage).not.toHaveBeenCalled();
@@ -135,7 +136,7 @@ describe("sendOrderConfirmationForSession", () => {
 
   it("authenticated order: analytics distinct id is the user id", async () => {
     const { admin } = makeAdmin({ order: { ...paidOrder, user_id: "user_abc" } });
-    await sendOrderConfirmationForSession(admin, SESSION_ID);
+    await sendOrderConfirmationForOrder(admin, ORDER_ID);
     expect(h.captureServerEvent).toHaveBeenCalledWith(
       "order_confirmation_email_sent",
       expect.anything(),
@@ -147,22 +148,22 @@ describe("sendOrderConfirmationForSession", () => {
     const { admin, rpc } = makeAdmin({
       order: { ...paidOrder, confirmation_email_sent_at: "2026-07-04T00:00:00.000Z" },
     });
-    await sendOrderConfirmationForSession(admin, SESSION_ID);
+    await sendOrderConfirmationForOrder(admin, ORDER_ID);
     expect(h.sendEmail).not.toHaveBeenCalled();
     expect(rpc).not.toHaveBeenCalled();
     expect(h.captureServerEvent).not.toHaveBeenCalled();
   });
 
-  it("non-paid order: skips silently (async_payment_failed path falls through)", async () => {
+  it("non-paid order: skips silently (failed/processing path falls through)", async () => {
     const { admin, rpc } = makeAdmin({ order: { ...paidOrder, status: "pending" } });
-    await sendOrderConfirmationForSession(admin, SESSION_ID);
+    await sendOrderConfirmationForOrder(admin, ORDER_ID);
     expect(h.sendEmail).not.toHaveBeenCalled();
     expect(rpc).not.toHaveBeenCalled();
   });
 
-  it("no order row: skips silently (unprocessable-session call site) — no Sentry", async () => {
+  it("no order row: skips silently (unreconcilable-payment call site) — no Sentry", async () => {
     const { admin } = makeAdmin({ order: null });
-    await sendOrderConfirmationForSession(admin, SESSION_ID);
+    await sendOrderConfirmationForOrder(admin, ORDER_ID);
     expect(h.sendEmail).not.toHaveBeenCalled();
     expect(h.captureMessage).not.toHaveBeenCalled();
     expect(h.captureException).not.toHaveBeenCalled();
@@ -172,12 +173,12 @@ describe("sendOrderConfirmationForSession", () => {
     const { admin, rpc } = makeAdmin();
     h.sendEmail.mockResolvedValue({ ok: false, reason: "resend_http_500" });
 
-    await expect(sendOrderConfirmationForSession(admin, SESSION_ID)).resolves.toBeUndefined();
+    await expect(sendOrderConfirmationForOrder(admin, ORDER_ID)).resolves.toBeUndefined();
 
     expect(rpc).not.toHaveBeenCalled();
     expect(h.captureServerEvent).toHaveBeenCalledWith(
       "order_confirmation_email_failed",
-      { session_id: SESSION_ID, reason: "resend_http_500" },
+      { provider_order_id: ORDER_ID, reason: "resend_http_500" },
       "guest",
     );
     expect(h.captureMessage).toHaveBeenCalled();
@@ -187,7 +188,7 @@ describe("sendOrderConfirmationForSession", () => {
     const { admin, rpc } = makeAdmin();
     h.sendEmail.mockResolvedValue({ ok: false, reason: "not_configured" });
 
-    await sendOrderConfirmationForSession(admin, SESSION_ID);
+    await sendOrderConfirmationForOrder(admin, ORDER_ID);
 
     expect(rpc).not.toHaveBeenCalled();
     expect(h.captureServerEvent).toHaveBeenCalledWith(
@@ -200,7 +201,7 @@ describe("sendOrderConfirmationForSession", () => {
 
   it("compose failure (zero items): permanent — no send, failed event + Sentry", async () => {
     const { admin } = makeAdmin({ items: [] });
-    await sendOrderConfirmationForSession(admin, SESSION_ID);
+    await sendOrderConfirmationForOrder(admin, ORDER_ID);
     expect(h.sendEmail).not.toHaveBeenCalled();
     expect(h.captureServerEvent).toHaveBeenCalledWith(
       "order_confirmation_email_failed",
@@ -213,7 +214,7 @@ describe("sendOrderConfirmationForSession", () => {
   it("marker write failure AFTER a successful send: warning only, sent event still fires", async () => {
     const { admin } = makeAdmin({ rpcError: { message: "db hiccup" } });
 
-    await expect(sendOrderConfirmationForSession(admin, SESSION_ID)).resolves.toBeUndefined();
+    await expect(sendOrderConfirmationForOrder(admin, ORDER_ID)).resolves.toBeUndefined();
 
     expect(h.sendEmail).toHaveBeenCalledTimes(1);
     expect(h.captureMessage).toHaveBeenCalledWith(expect.stringContaining("duplicate-risk"), "warning");
@@ -226,7 +227,7 @@ describe("sendOrderConfirmationForSession", () => {
 
   it("order lookup error: recorded loudly, no send, no throw", async () => {
     const { admin } = makeAdmin({ orderError: { message: "connection refused" } });
-    await sendOrderConfirmationForSession(admin, SESSION_ID);
+    await sendOrderConfirmationForOrder(admin, ORDER_ID);
     expect(h.sendEmail).not.toHaveBeenCalled();
     expect(h.captureMessage).toHaveBeenCalled();
   });
@@ -239,7 +240,7 @@ describe("sendOrderConfirmationForSession", () => {
       rpc: vi.fn(),
     } as unknown as SupabaseClient<Database>;
 
-    await expect(sendOrderConfirmationForSession(throwingAdmin, SESSION_ID)).resolves.toBeUndefined();
+    await expect(sendOrderConfirmationForOrder(throwingAdmin, ORDER_ID)).resolves.toBeUndefined();
     expect(h.captureException).toHaveBeenCalled();
   });
 });

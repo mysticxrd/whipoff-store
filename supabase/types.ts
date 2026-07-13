@@ -132,6 +132,80 @@ export type Database = {
         }
         Relationships: []
       }
+      checkout_sessions: {
+        Row: {
+          amount_shipping_minor: number
+          amount_subtotal_minor: number
+          amount_tax_minor: number
+          amount_total_minor: number
+          cart_id: string | null
+          consumed_at: string | null
+          created_at: string
+          currency: string
+          email: string
+          failed_at: string | null
+          id: string
+          items: Json
+          provider: string
+          provider_order_id: string
+          shipping_address: Json | null
+          shipping_name: string | null
+          status: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          amount_shipping_minor?: number
+          amount_subtotal_minor: number
+          amount_tax_minor?: number
+          amount_total_minor: number
+          cart_id?: string | null
+          consumed_at?: string | null
+          created_at?: string
+          currency?: string
+          email: string
+          failed_at?: string | null
+          id?: string
+          items: Json
+          provider?: string
+          provider_order_id: string
+          shipping_address?: Json | null
+          shipping_name?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          amount_shipping_minor?: number
+          amount_subtotal_minor?: number
+          amount_tax_minor?: number
+          amount_total_minor?: number
+          cart_id?: string | null
+          consumed_at?: string | null
+          created_at?: string
+          currency?: string
+          email?: string
+          failed_at?: string | null
+          id?: string
+          items?: Json
+          provider?: string
+          provider_order_id?: string
+          shipping_address?: Json | null
+          shipping_name?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checkout_sessions_cart_id_fkey"
+            columns: ["cart_id"]
+            isOneToOne: false
+            referencedRelation: "carts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       order_items: {
         Row: {
           created_at: string
@@ -202,11 +276,11 @@ export type Database = {
           id: string
           order_seq: number
           paid_at: string | null
+          provider_order_id: string
+          provider_payment_id: string | null
           shipping_address: Json | null
           shipping_name: string | null
           status: Database["public"]["Enums"]["order_status"]
-          stripe_checkout_session_id: string
-          stripe_payment_intent_id: string | null
           updated_at: string
           user_id: string | null
         }
@@ -222,11 +296,11 @@ export type Database = {
           id?: string
           order_seq?: number
           paid_at?: string | null
+          provider_order_id: string
+          provider_payment_id?: string | null
           shipping_address?: Json | null
           shipping_name?: string | null
           status?: Database["public"]["Enums"]["order_status"]
-          stripe_checkout_session_id: string
-          stripe_payment_intent_id?: string | null
           updated_at?: string
           user_id?: string | null
         }
@@ -242,13 +316,34 @@ export type Database = {
           id?: string
           order_seq?: number
           paid_at?: string | null
+          provider_order_id?: string
+          provider_payment_id?: string | null
           shipping_address?: Json | null
           shipping_name?: string | null
           status?: Database["public"]["Enums"]["order_status"]
-          stripe_checkout_session_id?: string
-          stripe_payment_intent_id?: string | null
           updated_at?: string
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      payment_events: {
+        Row: {
+          id: string
+          processed_at: string
+          provider: string
+          type: string
+        }
+        Insert: {
+          id: string
+          processed_at?: string
+          provider?: string
+          type: string
+        }
+        Update: {
+          id?: string
+          processed_at?: string
+          provider?: string
+          type?: string
         }
         Relationships: []
       }
@@ -371,24 +466,6 @@ export type Database = {
         }
         Relationships: []
       }
-      stripe_events: {
-        Row: {
-          id: string
-          processed_at: string
-          type: string
-        }
-        Insert: {
-          id: string
-          processed_at?: string
-          type: string
-        }
-        Update: {
-          id?: string
-          processed_at?: string
-          type?: string
-        }
-        Relationships: []
-      }
       variants: {
         Row: {
           created_at: string
@@ -446,14 +523,11 @@ export type Database = {
         Returns: undefined
       }
       claim_guest_orders: { Args: never; Returns: number }
-      finalize_stripe_order: {
+      mark_checkout_failed: {
         Args: {
-          p_cart_id?: string
           p_event_id: string
           p_event_type: string
-          p_paid: boolean
-          p_payment_intent_id?: string
-          p_session_id: string
+          p_provider_order_id: string
         }
         Returns: string
       }
@@ -461,13 +535,13 @@ export type Database = {
         Args: { p_order_id: string }
         Returns: boolean
       }
-      record_stripe_order: {
+      record_paid_order: {
         Args: {
-          p_cart_id?: string
+          p_amount_paid_minor: number
           p_event_id: string
           p_event_type: string
-          p_items: Json
-          p_order: Json
+          p_provider_order_id: string
+          p_provider_payment_id: string
         }
         Returns: string
       }
@@ -633,5 +707,6 @@ export type CartItemUpdate = Database["public"]["Tables"]["cart_items"]["Update"
 
 export type Order = Database["public"]["Tables"]["orders"]["Row"];
 export type OrderItem = Database["public"]["Tables"]["order_items"]["Row"];
-export type StripeEventRow = Database["public"]["Tables"]["stripe_events"]["Row"];
+export type PaymentEvent = Database["public"]["Tables"]["payment_events"]["Row"];
+export type CheckoutSession = Database["public"]["Tables"]["checkout_sessions"]["Row"];
 export type OrderStatus = Database["public"]["Enums"]["order_status"];
