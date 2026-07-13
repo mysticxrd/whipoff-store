@@ -1,33 +1,52 @@
 import "server-only";
 
-import Stripe from "stripe";
 import * as Sentry from "@sentry/nextjs";
-import { getStripe } from "@/lib/stripe";
+import { createRazorpayOrder } from "@/lib/razorpay";
 import { clientEnv } from "@/lib/env";
 import { getCart, getCartOwner } from "@/lib/cart/service";
 import { getVariantWithProduct } from "@/lib/catalog/queries";
+import { createAdminClient } from "@/lib/supabase/admin";
 import {
-  buildLineItemsFromCart,
-  buildSessionMetadata,
-  buildShippingOption,
+  buildItemsSnapshot,
+  buildOrderNotes,
+  computeCheckoutAmounts,
   findUnavailableLines,
   type CheckoutLine,
 } from "@/lib/checkout/pure";
+import type { ShippingDetails } from "@/lib/contracts";
 import { fail, ok, type ActionResult } from "@/lib/action-result";
 
-// Checkout-session creation — the ONE place that talks to Stripe on the way in. Takes NO
-// client input by design (payments.md: line items and amounts are computed server-side from
-// the live server cart; the client cannot influence money). The pure builders live in
-// lib/checkout/pure.ts (unit-tested); this module is the I/O shell around them.
+// Checkout creation — the ONE place that talks to Razorpay on the way in. The client sends
+// ONLY email + shipping address (Zod-parsed in the action); every amount is computed
+// server-side from the live server cart (payments.md: the client cannot influence money).
+// The pure math lives in lib/checkout/pure.ts (unit-tested); this module is the I/O shell:
+//   1. enrich + hard stock-check the cart;
+//   2. compute amounts and stage the full cart snapshot into checkout_sessions (the row the
+//      webhook's record_paid_order will consume — Razorpay notes cannot carry a cart);
+//   3. create the Razorpay Order for the staged total (receipt = staging row id);
+//   4. stamp the provider_order_id back onto the staging row.
+// The staging write uses the ADMIN client because checkout_sessions is deny-all under RLS
+// (rls.sql): shoppers never read/write it directly; it exists only for the webhook.
 
-/**
- * Create an Embedded Checkout Session from the caller's live cart (guest cookie or DB cart).
- * Rejects empty carts and over-stock lines with typed errors BEFORE any Stripe call
- * (PRD AC#7). Returns the client secret the embedded surface mounts with.
- */
-export async function createEmbeddedCheckoutSession(): Promise<
-  ActionResult<{ clientSecret: string }>
-> {
+export type CheckoutCreated = {
+  /** Razorpay order id (order_…) — the modal's `order_id` and our correlation key. */
+  providerOrderId: string;
+  amountMinor: number;
+  currency: string;
+  /** Prefill for the Razorpay modal. */
+  email: string;
+  keyId: string;
+};
+
+export async function createCheckout(input: {
+  email: string;
+  shipping: ShippingDetails;
+}): Promise<ActionResult<CheckoutCreated>> {
+  const keyId = clientEnv.NEXT_PUBLIC_RAZORPAY_KEY_ID;
+  if (!keyId) {
+    return fail({ code: "validation", message: "Payments aren't configured yet." });
+  }
+
   const cart = await getCart();
   if (cart.lines.length === 0) {
     return fail({ code: "validation", message: "Your cart is empty." });
@@ -61,73 +80,72 @@ export async function createEmbeddedCheckoutSession(): Promise<
   }
 
   const owner = await getCartOwner();
-  const params: Stripe.Checkout.SessionCreateParams = {
-    // "embedded_page" = Embedded Checkout on API 2026-06-24.dahlia (renamed from "embedded").
-    ui_mode: "embedded_page",
-    mode: "payment",
-    line_items: buildLineItemsFromCart(enriched),
-    shipping_options: [buildShippingOption(cart.subtotalMinor, cart.currency)],
-    shipping_address_collection: { allowed_countries: ["IN"] },
-    automatic_tax: { enabled: true },
-    metadata: buildSessionMetadata({
-      userId: owner.userId,
-      cartId: owner.cartId,
-      subtotalMinor: cart.subtotalMinor,
-    }),
-    // Stripe substitutes the session id itself — the return page re-parses it as untrusted.
-    return_url: `${clientEnv.NEXT_PUBLIC_APP_URL}/checkout/return?session_id={CHECKOUT_SESSION_ID}`,
-    ...(owner.email ? { customer_email: owner.email } : {}),
-  };
+  // Authenticated shoppers checkout under their ACCOUNT email — the form value is ignored for
+  // them (contracts.createCheckoutSchema note); guests use the form email.
+  const email = owner.email ?? input.email;
+  const amounts = computeCheckoutAmounts(enriched);
+  const currency = cart.currency.toUpperCase();
 
+  const admin = createAdminClient();
   try {
-    const session = await createSessionWithTaxFallback(getStripe(), params);
-    if (!session.client_secret) {
-      return fail({ code: "unknown", message: "Couldn't start checkout. Please try again." });
-    }
-    return ok({ clientSecret: session.client_secret });
+    // Stage first, then create the provider order: an orphaned 'created' staging row is inert
+    // (deny-all, never consumed), whereas a Razorpay order with no staging row would pay into
+    // session_not_found.
+    const { data: staged, error: stageError } = await admin
+      .from("checkout_sessions")
+      .insert({
+        user_id: owner.userId,
+        cart_id: owner.cartId,
+        email,
+        currency,
+        amount_subtotal_minor: amounts.subtotalMinor,
+        amount_shipping_minor: amounts.shippingMinor,
+        amount_tax_minor: amounts.taxMinor,
+        amount_total_minor: amounts.totalMinor,
+        shipping_name: input.shipping.name,
+        shipping_address: {
+          line1: input.shipping.line1,
+          line2: input.shipping.line2 ?? null,
+          city: input.shipping.city,
+          state: input.shipping.state,
+          postal_code: input.shipping.postal_code,
+          country: input.shipping.country,
+        },
+        items: buildItemsSnapshot(enriched),
+        // provider_order_id is NOT NULL — stamp a placeholder the Razorpay call overwrites;
+        // unique per row so concurrent checkouts can't collide.
+        provider_order_id: `pending_${crypto.randomUUID()}`,
+      })
+      .select("id")
+      .single();
+    if (stageError || !staged) throw stageError ?? new Error("staging insert returned no row");
+
+    const order = await createRazorpayOrder({
+      amountMinor: amounts.totalMinor,
+      currency,
+      receipt: staged.id,
+      notes: buildOrderNotes({
+        checkoutSessionId: staged.id,
+        userId: owner.userId,
+        cartId: owner.cartId,
+      }),
+    });
+
+    const { error: stampError } = await admin
+      .from("checkout_sessions")
+      .update({ provider_order_id: order.id })
+      .eq("id", staged.id);
+    if (stampError) throw stampError;
+
+    return ok({
+      providerOrderId: order.id,
+      amountMinor: amounts.totalMinor,
+      currency,
+      email,
+      keyId,
+    });
   } catch (error) {
     Sentry.captureException(error);
     return fail({ code: "unknown", message: "Couldn't start checkout. Please try again." });
   }
-}
-
-/**
- * Gate-1 decision #1 (Stripe Tax vs India origin): attempt `automatic_tax`; if the account
- * rejects it as unsupported, retry ONCE without it and log loudly. Tax then records as 0 —
- * acceptable for GST-inclusive Indian retail pricing. Any other error propagates untouched.
- */
-async function createSessionWithTaxFallback(
-  stripe: Stripe,
-  params: Stripe.Checkout.SessionCreateParams,
-): Promise<Stripe.Checkout.Session> {
-  try {
-    return await stripe.checkout.sessions.create(params);
-  } catch (error) {
-    if (!isAutomaticTaxUnsupported(error)) throw error;
-    console.warn(
-      JSON.stringify({
-        source: "checkout",
-        event: "automatic_tax_unsupported_fallback",
-        detail: error instanceof Error ? error.message : String(error),
-      }),
-    );
-    Sentry.captureMessage(
-      "Stripe automatic_tax unsupported on this account — session created without it (tax=0)",
-      "warning",
-    );
-    const withoutTax = { ...params };
-    delete withoutTax.automatic_tax;
-    return stripe.checkout.sessions.create(withoutTax);
-  }
-}
-
-function isAutomaticTaxUnsupported(error: unknown): boolean {
-  if (!(error instanceof Stripe.errors.StripeInvalidRequestError)) return false;
-  const haystack = `${error.param ?? ""} ${error.message}`.toLowerCase();
-  return (
-    haystack.includes("automatic_tax") ||
-    haystack.includes("automatic tax") ||
-    haystack.includes("origin address") ||
-    haystack.includes("head office")
-  );
 }

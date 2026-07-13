@@ -13,16 +13,16 @@ import type { Database } from "@/supabase/types";
 
 // Order-confirmation orchestrator — the webhook's post-commit email side-effect (PRD Slice-5).
 //
-// CONTRACT: NEVER throws. The caller is the Stripe webhook, whose top-level catch returns 500
-// (= Stripe retries); an email failure escaping this function would turn "receipt delayed" into
-// "webhook lied about a written order". Everything is caught, recorded (Sentry + the
+// CONTRACT: NEVER throws. The caller is the payment webhook, whose top-level catch returns 500
+// (= the provider retries); an email failure escaping this function would turn "receipt delayed"
+// into "webhook lied about a written order". Everything is caught, recorded (Sentry + the
 // order_confirmation_email_failed event, observability.md), and swallowed (PRD AC 4).
 //
-// IDEMPOTENCY (PRD AC 3): gated on orders.confirmation_email_sent_at, NOT the stripe_events
+// IDEMPOTENCY (PRD AC 3): gated on orders.confirmation_email_sent_at, NOT the payment_events
 // ledger — the ledger dedups the ORDER WRITE, this marker dedups the SEND (01_data migration
-// rationale). The webhook calls this on EVERY session event it handles, including duplicate
+// rationale). The webhook calls this on EVERY paid-family event it handles, including duplicate
 // deliveries: a marker already set → skip; a marker still NULL after a crash-during-email →
-// Stripe's retry lands here and the receipt is recovered instead of permanently dropped.
+// the provider's retry lands here and the receipt is recovered instead of permanently dropped.
 //
 // PREFER-DELIVERY ORDERING (Gate-1 #5, human-set): SEND first, THEN mark via the service-role
 // RPC mark_order_confirmation_email_sent(). A crash between the two re-sends on retry (rare
@@ -41,7 +41,7 @@ function logEmail(event: string, detail: Record<string, string | number | boolea
 }
 
 async function recordFailure(
-  sessionId: string,
+  providerOrderId: string,
   distinctId: string,
   reason: string,
   opts: { sentry: boolean },
@@ -49,47 +49,47 @@ async function recordFailure(
   if (opts.sentry) {
     Sentry.captureMessage(`order confirmation email failed: ${reason}`, "error");
   }
-  logEmail("send_failed", { session_id: sessionId, reason });
+  logEmail("send_failed", { provider_order_id: providerOrderId, reason });
   await captureServerEvent(
     "order_confirmation_email_failed",
-    { session_id: sessionId, reason },
+    { provider_order_id: providerOrderId, reason },
     distinctId,
   );
 }
 
 /**
- * Send the confirmation email for the paid order belonging to a checkout session, exactly once.
- * Self-gating: looks the order up itself (service-role read of the PERSISTED row — content always
- * reflects committed state, email.md "send after the order write commits") and returns quietly
- * when there is nothing to do (order missing, not paid, or already emailed).
+ * Send the confirmation email for the paid order belonging to a provider order id, exactly
+ * once. Self-gating: looks the order up itself (service-role read of the PERSISTED row —
+ * content always reflects committed state, email.md "send after the order write commits") and
+ * returns quietly when there is nothing to do (order missing, not paid, or already emailed).
  */
-export async function sendOrderConfirmationForSession(
+export async function sendOrderConfirmationForOrder(
   admin: Admin,
-  sessionId: string,
+  providerOrderId: string,
 ): Promise<void> {
   try {
     const { data: order, error: orderError } = await admin
       .from("orders")
       .select(ORDER_SELECT)
-      .eq("stripe_checkout_session_id", sessionId)
+      .eq("provider_order_id", providerOrderId)
       .maybeSingle();
     if (orderError) {
-      await recordFailure(sessionId, "guest", `order_lookup_failed: ${orderError.message}`, {
+      await recordFailure(providerOrderId, "guest", `order_lookup_failed: ${orderError.message}`, {
         sentry: true,
       });
       return;
     }
     if (!order) {
-      // Unprocessable/pending sessions reach here via the always-attempt call site — not a failure.
-      logEmail("skipped", { session_id: sessionId, reason: "no_order_row" });
+      // Unreconcilable/failed attempts reach here via the always-attempt call site — not a failure.
+      logEmail("skipped", { provider_order_id: providerOrderId, reason: "no_order_row" });
       return;
     }
     if (order.status !== "paid") {
-      logEmail("skipped", { session_id: sessionId, reason: `status_${order.status}` });
+      logEmail("skipped", { provider_order_id: providerOrderId, reason: `status_${order.status}` });
       return;
     }
     if (order.confirmation_email_sent_at !== null) {
-      logEmail("skipped", { session_id: sessionId, reason: "already_sent" });
+      logEmail("skipped", { provider_order_id: providerOrderId, reason: "already_sent" });
       return;
     }
 
@@ -101,7 +101,7 @@ export async function sendOrderConfirmationForSession(
       .eq("order_id", order.id)
       .order("created_at", { ascending: true });
     if (itemsError) {
-      await recordFailure(sessionId, distinctId, `items_lookup_failed: ${itemsError.message}`, {
+      await recordFailure(providerOrderId, distinctId, `items_lookup_failed: ${itemsError.message}`, {
         sentry: true,
       });
       return;
@@ -110,7 +110,7 @@ export async function sendOrderConfirmationForSession(
     const composed = composeOrderConfirmationEmail(order, items ?? []);
     if (!composed.ok) {
       // PERMANENT: a retry re-reads the same rows — record loudly, don't loop.
-      await recordFailure(sessionId, distinctId, `compose_failed: ${composed.reason}`, {
+      await recordFailure(providerOrderId, distinctId, `compose_failed: ${composed.reason}`, {
         sentry: true,
       });
       return;
@@ -125,7 +125,7 @@ export async function sendOrderConfirmationForSession(
     });
     if (!sent.ok) {
       // not_configured = the deliberate local/mock posture — observable but not a Sentry alarm.
-      await recordFailure(sessionId, distinctId, sent.reason, {
+      await recordFailure(providerOrderId, distinctId, sent.reason, {
         sentry: sent.reason !== "not_configured",
       });
       return;
@@ -140,18 +140,18 @@ export async function sendOrderConfirmationForSession(
         `order confirmation sent but marker write failed (duplicate-risk accepted): ${markError.message}`,
         "warning",
       );
-      logEmail("mark_failed", { session_id: sessionId, order_id: order.id });
+      logEmail("mark_failed", { provider_order_id: providerOrderId, order_id: order.id });
     }
 
     logEmail("sent", {
-      session_id: sessionId,
+      provider_order_id: providerOrderId,
       order_number: composed.receipt.orderNumber,
       provider_id: sent.providerId,
     });
     await captureServerEvent(
       "order_confirmation_email_sent",
       {
-        session_id: sessionId,
+        provider_order_id: providerOrderId,
         value_minor: composed.receipt.amountTotalMinor,
         currency: composed.receipt.currency,
       },
@@ -161,7 +161,7 @@ export async function sendOrderConfirmationForSession(
     // Belt-and-braces: NOTHING escapes into the webhook's 500 path.
     Sentry.captureException(error);
     logEmail("send_failed", {
-      session_id: sessionId,
+      provider_order_id: providerOrderId,
       reason: error instanceof Error ? error.message : String(error),
     });
   }

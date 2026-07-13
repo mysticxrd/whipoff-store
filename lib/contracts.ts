@@ -1,6 +1,7 @@
 // Zod contracts — Slice 0 (auth + profile) + Slice 1 (catalog reads) + Slice 2 (cart mutations)
-// + Slice 3 (checkout + payments boundaries) + Slice 4 (account + order history + guest claim)
-// + Slice 5 (order-confirmation email receipt shape).
+// + Slice 3 (checkout + payments boundaries, RE-PLATFORMED to Razorpay by the provider-swap
+// slice, 2026-07-12) + Slice 4 (account + order history + guest claim) + Slice 5
+// (order-confirmation email receipt shape).
 //
 // SINGLE SOURCE OF TRUTH for input validation, shared by client (UX) and server
 // (re-validation). See shared/api_conventions.md and _config/security_shield.md flaw #3:
@@ -122,19 +123,27 @@ export const removeCartItemSchema = z.object({
 export type RemoveCartItemInput = z.infer<typeof removeCartItemSchema>;
 
 // ===========================================================================
-// Slice 3 — checkout + payments boundaries
+// Slice 3 — checkout + payments boundaries (RE-PLATFORMED: Stripe → Razorpay, 2026-07-12)
 // ===========================================================================
-// Checkout money is NEVER a client input: `createCheckoutSession` deliberately takes NO
-// arguments — the cart is read server-side and every amount is recomputed from variants
-// (payments.md: "never trust client-sent prices"), so it needs no input schema at all.
-// What DOES cross a trust boundary, and is therefore parsed strictly server-side:
-//  - the return-page search param (Stripe substitutes {CHECKOUT_SESSION_ID} into our URL,
-//    but the param arrives from the shopper's browser);
-//  - the cart-clear action input (same session id, sent by the return page's client leaf);
-//  - session metadata, which round-trips THROUGH Stripe and back in webhook events —
-//    treated as untrusted on re-entry and re-parsed before any use.
+// Checkout money is NEVER a client input: amounts are recomputed server-side from variants
+// (payments.md: "never trust client-sent prices"). What changed with Razorpay:
+//  - Razorpay Standard Checkout does NOT collect a shipping address (Stripe's session did),
+//    so shipping details are now a FIRST-PARTY client input — a NEW trust boundary, parsed
+//    strictly server-side before the Razorpay Order + checkout_sessions staging row are created.
+//  - The old session-metadata round-trip (checkoutSessionMetadataSchema) is RETIRED: the cart
+//    snapshot no longer travels through the provider — it is staged server-side in
+//    public.checkout_sessions and read back by the webhook (migration.sql header).
+//  - The modal's success handler posts { order_id, payment_id, signature } to the server —
+//    a client-supplied triple, so its ONLY trusted use is as input to the server-side HMAC
+//    verification (the signature proves the pair came from Razorpay; the values grant nothing
+//    by themselves).
+// RETIRED (were Stripe-shaped): checkoutSessionIdSchema (cs_… regex),
+// checkoutSessionMetadataSchema. checkoutReturnQuerySchema / clearCartAfterCheckoutSchema are
+// re-keyed from the Stripe session id to the Razorpay order id.
 
-/** Order lifecycle (mirrors the public.order_status enum / domain glossary). */
+/** Order lifecycle (mirrors the public.order_status enum / domain glossary). `pending`,
+ * `refunded`, `cancelled` are retained enum values but no code path writes them post-swap
+ * (webhook writes `paid` only; failed checkouts never become Orders). */
 export const orderStatusSchema = z.enum([
   "pending",
   "paid",
@@ -144,38 +153,118 @@ export const orderStatusSchema = z.enum([
 ]);
 export type OrderStatusValue = z.infer<typeof orderStatusSchema>;
 
-/** A Stripe Checkout Session id. STRICT shape; length-capped defensively. */
-export const checkoutSessionIdSchema = z
+/** A Razorpay order id (`order_…`). STRICT shape; length-capped defensively. */
+export const providerOrderIdSchema = z
   .string()
-  .max(200, "Invalid checkout session.")
-  .regex(/^cs_(test|live)_[A-Za-z0-9]+$/, "Invalid checkout session.");
+  .max(64, "Invalid checkout reference.")
+  .regex(/^order_[A-Za-z0-9]+$/, "Invalid checkout reference.");
+export type ProviderOrderId = z.infer<typeof providerOrderIdSchema>;
 
-/** /checkout/return search params. Strict: an invalid session id is treated as not-found. */
+/** A Razorpay payment id (`pay_…`). STRICT shape; length-capped defensively. */
+export const providerPaymentIdSchema = z
+  .string()
+  .max(64, "Invalid payment reference.")
+  .regex(/^pay_[A-Za-z0-9]+$/, "Invalid payment reference.");
+export type ProviderPaymentId = z.infer<typeof providerPaymentIdSchema>;
+
+/**
+ * Shipping details — the NEW first-party client input (Razorpay collects contact/email, not
+ * addresses). India-only store: 6-digit PIN (no leading 0), fixed country 'IN', optional
+ * 10-digit mobile (Razorpay prefill wants bare digits; no +91). Parsed server-side before
+ * any Razorpay Order / staging write (flaw #3); the parsed value becomes the
+ * checkout_sessions.shipping_address snapshot in EXACTLY the shape the receipt email's
+ * shippingAddressSnapshotSchema reads (line1/line2/city/state/postal_code/country).
+ */
+export const shippingDetailsSchema = z.object({
+  name: z.string().trim().min(1, "Enter the recipient name.").max(200),
+  line1: z.string().trim().min(1, "Enter an address.").max(200),
+  line2: z.string().trim().max(200).optional(),
+  city: z.string().trim().min(1, "Enter a city.").max(100),
+  state: z.string().trim().min(1, "Enter a state.").max(100),
+  postal_code: z
+    .string()
+    .trim()
+    .regex(/^[1-9][0-9]{5}$/, "Enter a valid 6-digit PIN code."),
+  country: z.literal("IN").default("IN"),
+  phone: z
+    .string()
+    .trim()
+    .regex(/^[6-9][0-9]{9}$/, "Enter a valid 10-digit mobile number.")
+    .optional(),
+});
+export type ShippingDetails = z.infer<typeof shippingDetailsSchema>;
+
+/**
+ * Input for the checkout-creation Server Action. `email` is the receipt/claim identity for
+ * guests; for AUTHENTICATED callers the server IGNORES this field and uses the session email
+ * (client-supplied identity is never trusted over the JWT — flaw #3). Cart contents/amounts
+ * are read server-side and are deliberately NOT inputs.
+ */
+export const createCheckoutSchema = z.object({
+  email: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .pipe(z.email("Enter a valid email address.")),
+  shipping: shippingDetailsSchema,
+});
+export type CreateCheckoutInput = z.infer<typeof createCheckoutSchema>;
+
+/**
+ * The Razorpay success-handler callback payload (client → server). Field names are Razorpay's
+ * own (snake_case, fixed by their checkout.js). UNTRUSTED until the server recomputes
+ * HMAC-SHA256(order_id + "|" + payment_id, key_secret) and constant-time-compares it to
+ * `razorpay_signature` — verification is the gate; these values grant nothing on their own.
+ */
+export const razorpayCallbackSchema = z.object({
+  razorpay_order_id: providerOrderIdSchema,
+  razorpay_payment_id: providerPaymentIdSchema,
+  razorpay_signature: z
+    .string()
+    .regex(/^[0-9a-f]{64}$/, "Invalid payment signature."),
+});
+export type RazorpayCallback = z.infer<typeof razorpayCallbackSchema>;
+
+/** /checkout/return search params — re-keyed to the Razorpay order id. Strict: an invalid
+ * id is treated as not-found (same posture as the retired cs_… schema). */
 export const checkoutReturnQuerySchema = z.object({
-  session_id: checkoutSessionIdSchema,
+  order_id: providerOrderIdSchema,
 });
 export type CheckoutReturnQuery = z.infer<typeof checkoutReturnQuerySchema>;
 
-/** Input for the post-payment cart-clear Server Action (fired by the return page). */
+/** Input for the post-payment guest-cookie-cart-clear Server Action (fired by the return
+ * surface; DB carts are cleared by the webhook inside apply_paid_order_effects). The server
+ * verifies the referenced checkout's PAID state server-side before clearing — the Finding-#2
+ * guard, re-platformed (a pending/failed checkout NEVER clears the cart). */
 export const clearCartAfterCheckoutSchema = z.object({
-  sessionId: checkoutSessionIdSchema,
+  orderId: providerOrderIdSchema,
 });
 export type ClearCartAfterCheckoutInput = z.infer<typeof clearCartAfterCheckoutSchema>;
 
 /**
- * Checkout Session metadata we attach at session creation for reconciliation
- * (payments.md: "the session carries metadata (cart/user ids)"). It round-trips through
- * Stripe and re-enters via webhook events, so the webhook RE-PARSES it with this schema
- * before any write (flaw #3). `'guest'` marks the cookie-cart / signed-out path.
- * `cart_subtotal_minor` is a reconciliation cross-check against Stripe's amount_subtotal —
- * Stripe stays the money-truth; a mismatch is flagged to monitoring, never “corrected”.
+ * Structural schema for the Razorpay webhook envelope — applied AFTER raw-body HMAC
+ * verification (the signature authenticates; this parse only shapes). Minimal on purpose:
+ * exactly the fields the handler reads. `payment.entity.amount` is Razorpay's integer
+ * minor-unit (paise) amount — cross-checked in-RPC against the staged total (money truth).
+ * The event id comes from the `x-razorpay-event-id` HEADER (paymentEventIdSchema), not the body.
  */
-export const checkoutSessionMetadataSchema = z.object({
-  user_id: z.uuid().or(z.literal("guest")),
-  cart_id: z.uuid().or(z.literal("guest")),
-  cart_subtotal_minor: z.coerce.number().int().nonnegative(),
+export const razorpayWebhookEventSchema = z.object({
+  event: z.enum(["order.paid", "payment.captured", "payment.failed"]),
+  payload: z.object({
+    payment: z.object({
+      entity: z.object({
+        id: providerPaymentIdSchema,
+        order_id: providerOrderIdSchema,
+        amount: z.number().int().nonnegative(),
+        status: z.string(),
+      }),
+    }),
+  }),
 });
-export type CheckoutSessionMetadata = z.infer<typeof checkoutSessionMetadataSchema>;
+export type RazorpayWebhookEvent = z.infer<typeof razorpayWebhookEventSchema>;
+
+/** The x-razorpay-event-id header value — the idempotency-ledger key. Opaque; bounded. */
+export const paymentEventIdSchema = z.string().min(1).max(200);
 
 // ===========================================================================
 // Slice 4 — account + order history + guest claim boundaries
@@ -194,7 +283,7 @@ export type CheckoutSessionMetadata = z.infer<typeof checkoutSessionMetadataSche
 /**
  * Canonical email normalization — lowercase + trim. ALIGNED with the SQL claim matcher
  * `lower(btrim(email, <ASCII whitespace>))` in migration.sql for the ASCII-clean inputs we
- * accept (Stripe / GoTrue emails): both strip the full ASCII whitespace set and lowercase.
+ * accept (checkout-form / GoTrue emails): both strip the full ASCII whitespace set and lowercase.
  * Accepted residual (03_verify Finding 2): JS trim() also strips Unicode whitespace, and
  * toLowerCase() can diverge from Postgres lower() on locale glyphs — unreachable with
  * provider-issued emails. Pure + unit-testable.
@@ -295,9 +384,9 @@ export type AuthCallbackParams = z.infer<typeof authCallbackSchema>;
 // ===========================================================================
 // Slice 5 — order-confirmation email (Resend)
 // ===========================================================================
-// The Stripe webhook is the ONLY trigger for this email, and it is ALREADY signature-verified with
-// its metadata re-parsed server-side (Slice 3, checkoutSessionMetadataSchema) — so Slice 5 introduces
-// NO new CLIENT trust boundary and therefore no new client-input schema. What IS defined here is the
+// The payment webhook (Razorpay post-swap) is the ONLY trigger for this email, and it is ALREADY
+// signature-verified with its envelope re-parsed server-side (razorpayWebhookEventSchema) — so
+// Slice 5 introduces NO new CLIENT trust boundary and therefore no new client-input schema. What IS defined here is the
 // INTERNAL receipt contract: the shape the webhook composes (from trusted, service-role-read
 // orders + order_items rows) and hands to the Resend template. It is the single source of truth for
 // the template's props and is parsed defensively before send, so a malformed receipt fails LOUDLY
@@ -305,7 +394,7 @@ export type AuthCallbackParams = z.infer<typeof authCallbackSchema>;
 // units + currency; totals are READ from the persisted order — NEVER re-derived here (PRD reuse rule).
 // Display formatting reuses the existing money helper + formatOrderNumber (above); no amount is recomputed.
 // The prefer-delivery posture (PRD Gate-1 #5) lives at the SEND step, not here — the only field made
-// tolerant is the display-only shippingAddress (a Stripe-shaped blob), which degrades to "no address
+// tolerant is the display-only shippingAddress (a provider-era-agnostic blob), which degrades to "no address
 // shown" rather than blocking the receipt.
 
 /** Minor-unit money amount (integer, non-negative) — mirrors the orders / order_items columns. */
@@ -326,10 +415,11 @@ export const orderConfirmationLineSchema = z.object({
 export type OrderConfirmationLine = z.infer<typeof orderConfirmationLineSchema>;
 
 /**
- * Shipping-address snapshot: the Stripe address object captured on the order (Slice 3, orders.shipping_address
- * jsonb). Every field is optional/nullish so a partial address still renders, and the WHOLE thing
- * `.catch(null)`s to "no address shown" rather than throwing — a display-only detail must never BLOCK
- * the receipt (PRD Gate-1 #5 prefer-delivery). Unknown Stripe keys are stripped.
+ * Shipping-address snapshot: the address object captured on the order (orders.shipping_address
+ * jsonb — post-swap, our own shippingDetailsSchema snapshot; legacy rows may hold Stripe's shape,
+ * which uses the same keys). Every field is optional/nullish so a partial address still renders, and
+ * the WHOLE thing `.catch(null)`s to "no address shown" rather than throwing — a display-only detail
+ * must never BLOCK the receipt (PRD Gate-1 #5 prefer-delivery). Unknown keys are stripped.
  */
 export const shippingAddressSnapshotSchema = z
   .object({
