@@ -25,16 +25,22 @@ As of the 2026-07-19 local readiness pass:
 - The tracked-secret scan found no credential-shaped values.
 - Git integrity passed.
 
-The branch is not on GitHub and nothing in this release candidate has been deployed. The next gate
-is an explicitly approved push of `integrate-rzp-design` and creation of a preview path.
+The branch was pushed on 2026-07-20 and is tracked by draft PR
+[`#1`](https://github.com/mysticxrd/whipoff-store/pull/1). Vercel automatically built a Ready preview
+at `https://whipoff-store-git-integrate-rzp-design-hishamxrd-2949s-projects.vercel.app`.
+
+The preview is **not payment-ready yet**: an isolated Supabase branch, Razorpay test credentials,
+Preview-scoped environment variables, webhook, and auth redirects still need to be configured. Do
+not exercise checkout against inherited production database settings. The next gate is isolated
+preview infrastructure.
 
 ## 2. Existing infrastructure
 
 | Service | Identifier | State |
 |---|---|---|
-| Vercel | project `whipoff-store`; project ID `prj_s3SKrcDSeR0CqD6vQznByJJRQdBN`; team `team_gO0S4hNwMg0bEHVkSHiV9bDW` | Linked through `.vercel/`; production builds `main`. |
+| Vercel | project `whipoff-store`; project ID `prj_s3SKrcDSeR0CqD6vQznByJJRQdBN`; team `team_gO0S4hNwMg0bEHVkSHiV9bDW` | Production builds `main`; PR #1 preview is Ready but not environment-configured. |
 | Supabase | production project ref `rfjjyrbimnlwivkcdmqv` | Stripe-era migrations applied; Razorpay migration is pending. |
-| GitHub | `github.com/mysticxrd/whipoff-store` | Only `main` exists remotely at this snapshot. |
+| GitHub | `github.com/mysticxrd/whipoff-store` | `integrate-rzp-design` is pushed; draft PR #1 targets `main`. |
 | Razorpay | Test account credentials required | Test mode only for preview and initial production smoke. |
 | Stripe | Existing test configuration | Retire only after the Razorpay cutover succeeds. |
 | Resend | Optional during payment verification | Unconfigured sends are recorded as skipped. |
@@ -67,6 +73,9 @@ The current local `.env.local` still contains Stripe-era configuration. `/checko
 ## 4. Release sequence
 
 ### 4.1 Preserve the release candidate
+
+**Completed 2026-07-20:** `integrate-rzp-design` is pushed and draft PR #1 is open against `main`.
+The commands below remain as recovery documentation for a fresh clone.
 
 After explicit approval:
 
