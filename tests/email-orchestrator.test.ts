@@ -121,6 +121,7 @@ describe("sendOrderConfirmationForOrder", () => {
 
     expect(h.sendEmail).toHaveBeenCalledTimes(1);
     expect(h.sendEmail.mock.calls[0]![0].to).toBe("buyer@example.com");
+    expect(h.sendEmail.mock.calls[0]![0].idempotencyKey).toBe(`order-receipt/${ORDER_ID}`);
     // Prefer-delivery ordering: the send completed before the marker RPC fired.
     expect(log).toEqual([
       "send",
@@ -184,6 +185,29 @@ describe("sendOrderConfirmationForOrder", () => {
     expect(h.captureMessage).toHaveBeenCalled();
   });
 
+  it("signals the webhook to retry a transient provider failure", async () => {
+    const { admin } = makeAdmin();
+    const onRetryableFailure = vi.fn();
+    h.sendEmail.mockResolvedValue({ ok: false, reason: "resend_http_503" });
+
+    await sendOrderConfirmationForOrder(admin, ORDER_ID, { onRetryableFailure });
+
+    expect(onRetryableFailure).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not retry a permanent provider validation failure", async () => {
+    const { admin } = makeAdmin();
+    const onRetryableFailure = vi.fn();
+    h.sendEmail.mockResolvedValue({
+      ok: false,
+      reason: "resend_http_422_validation_error",
+    });
+
+    await sendOrderConfirmationForOrder(admin, ORDER_ID, { onRetryableFailure });
+
+    expect(onRetryableFailure).not.toHaveBeenCalled();
+  });
+
   it("not_configured: failed event recorded but NOT a Sentry alarm (deliberate local posture)", async () => {
     const { admin, rpc } = makeAdmin();
     h.sendEmail.mockResolvedValue({ ok: false, reason: "not_configured" });
@@ -217,7 +241,10 @@ describe("sendOrderConfirmationForOrder", () => {
     await expect(sendOrderConfirmationForOrder(admin, ORDER_ID)).resolves.toBeUndefined();
 
     expect(h.sendEmail).toHaveBeenCalledTimes(1);
-    expect(h.captureMessage).toHaveBeenCalledWith(expect.stringContaining("duplicate-risk"), "warning");
+    expect(h.captureMessage).toHaveBeenCalledWith(
+      expect.stringContaining("provider idempotency key"),
+      "warning",
+    );
     expect(h.captureServerEvent).toHaveBeenCalledWith(
       "order_confirmation_email_sent",
       expect.anything(),
@@ -240,7 +267,14 @@ describe("sendOrderConfirmationForOrder", () => {
       rpc: vi.fn(),
     } as unknown as SupabaseClient<Database>;
 
-    await expect(sendOrderConfirmationForOrder(throwingAdmin, ORDER_ID)).resolves.toBeUndefined();
-    expect(h.captureException).toHaveBeenCalled();
+    const onRetryableFailure = vi.fn();
+    await expect(
+      sendOrderConfirmationForOrder(throwingAdmin, ORDER_ID, { onRetryableFailure }),
+    ).resolves.toBeUndefined();
+    expect(h.captureMessage).toHaveBeenCalledWith(
+      "order confirmation email failed: unexpected_error",
+      "error",
+    );
+    expect(onRetryableFailure).toHaveBeenCalledTimes(1);
   });
 });

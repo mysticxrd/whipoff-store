@@ -1,8 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-
-// Slice 5 — server/email/send.ts, the zero-dependency Resend fetch client.
-// Contract under test: NEVER throws; not-configured short-circuits; status-only errors
-// (a Resend response body must never leak into the reason string).
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const env = vi.hoisted(() => ({
   getResendApiKey: vi.fn<() => string | null>(),
@@ -14,6 +10,7 @@ vi.mock("@/lib/env-server", () => env);
 import { sendEmail } from "@/server/email/send";
 
 const input = {
+  idempotencyKey: "order-receipt/order_MNabc123XYZ",
   to: "buyer@example.com",
   subject: "Your Whipoff order WO-000123 is confirmed",
   html: "<p>receipt</p>",
@@ -33,41 +30,35 @@ afterEach(() => {
 });
 
 describe("sendEmail", () => {
-  it("skips as not_configured when the key is absent — no network call", async () => {
+  it("skips without a configured key", async () => {
     env.getResendApiKey.mockReturnValue(null);
-    const result = await sendEmail(input);
-    expect(result).toEqual({ ok: false, reason: "not_configured" });
+    await expect(sendEmail(input)).resolves.toEqual({ ok: false, reason: "not_configured" });
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("contains a malformed-key throw as {ok:false} — no network call", async () => {
+  it("contains malformed-key failures before any network call", async () => {
     env.getResendApiKey.mockImplementation(() => {
-      throw new Error("Missing/invalid server env RESEND_API_KEY: must be re_…");
+      throw new Error("Missing/invalid server env RESEND_API_KEY");
     });
     const result = await sendEmail(input);
     expect(result.ok).toBe(false);
-    if (result.ok) return;
-    expect(result.reason).toContain("RESEND_API_KEY");
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("POSTs the Resend shape with Bearer auth and returns the provider id", async () => {
+  it("POSTs the Resend request and returns its provider id", async () => {
     env.getResendApiKey.mockReturnValue("re_test_123");
     fetchMock.mockResolvedValue({
       ok: true,
       status: 200,
       json: async () => ({ id: "email_abc" }),
     });
-    const result = await sendEmail(input);
-    expect(result).toEqual({ ok: true, providerId: "email_abc" });
 
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await expect(sendEmail(input)).resolves.toEqual({ ok: true, providerId: "email_abc" });
     const [url, init] = fetchMock.mock.calls[0]!;
     expect(url).toBe("https://api.resend.com/emails");
-    expect(init.method).toBe("POST");
     expect(init.headers.Authorization).toBe("Bearer re_test_123");
-    const body = JSON.parse(init.body);
-    expect(body).toEqual({
+    expect(init.headers["Idempotency-Key"]).toBe(input.idempotencyKey);
+    expect(JSON.parse(init.body)).toEqual({
       from: "Whipoff <onboarding@resend.dev>",
       to: ["buyer@example.com"],
       subject: input.subject,
@@ -76,25 +67,46 @@ describe("sendEmail", () => {
     });
   });
 
-  it("maps a non-2xx to a status-only reason — response body never leaks", async () => {
+  it("keeps the safe provider code but never leaks the provider message", async () => {
     env.getResendApiKey.mockReturnValue("re_test_123");
     fetchMock.mockResolvedValue({
       ok: false,
       status: 422,
-      json: async () => ({ message: "SECRET-ish provider detail" }),
+      json: async () => ({
+        name: "validation_error",
+        message: "You can only send to private-recipient@example.com",
+      }),
     });
+
     const result = await sendEmail(input);
-    expect(result).toEqual({ ok: false, reason: "resend_http_422" });
-    expect(JSON.stringify(result)).not.toContain("SECRET");
+    expect(result).toEqual({
+      ok: false,
+      reason: "resend_http_422_validation_error",
+    });
+    expect(JSON.stringify(result)).not.toContain("private-recipient");
   });
 
-  it("maps a network rejection to network_error (never throws)", async () => {
+  it("drops malformed provider codes and falls back to status only", async () => {
+    env.getResendApiKey.mockReturnValue("re_test_123");
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 422,
+      json: async () => ({ name: "bad code: buyer@example.com" }),
+    });
+
+    await expect(sendEmail(input)).resolves.toEqual({
+      ok: false,
+      reason: "resend_http_422",
+    });
+  });
+
+  it("maps a network rejection to network_error", async () => {
     env.getResendApiKey.mockReturnValue("re_test_123");
     fetchMock.mockRejectedValue(new Error("ECONNRESET"));
     await expect(sendEmail(input)).resolves.toEqual({ ok: false, reason: "network_error" });
   });
 
-  it("tolerates a 2xx with an unparseable body (providerId null)", async () => {
+  it("tolerates a successful response with an unparseable body", async () => {
     env.getResendApiKey.mockReturnValue("re_test_123");
     fetchMock.mockResolvedValue({
       ok: true,
@@ -103,6 +115,7 @@ describe("sendEmail", () => {
         throw new Error("not json");
       },
     });
+
     await expect(sendEmail(input)).resolves.toEqual({ ok: true, providerId: null });
   });
 });

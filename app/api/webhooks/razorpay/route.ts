@@ -26,9 +26,9 @@ import { sendOrderConfirmationForOrder } from "@/server/email/order-confirmation
 //  - payment.failed is NOT terminal (Razorpay lets the shopper retry within the same order):
 //    mark_checkout_failed stamps failed_at telemetry only; no cancelled Order is ever written.
 //  - Writes go through the service-role client (bypasses RLS by design).
-//  - Confirmation email is a POST-COMMIT side-effect gated on the order's own send marker,
-//    attempted on every paid-family event (including 'duplicate_*' redeliveries) so a
-//    crash-during-email heals on retry — and it can NEVER throw into this handler.
+//  - Confirmation email is a POST-COMMIT side-effect attempted by the inserted event and
+//    retries of that SAME event only. The sibling paid-family event returns duplicate_order
+//    and skips it. Retryable failures request a 500; Resend idempotency prevents duplicates.
 
 export const runtime = "nodejs";
 
@@ -129,11 +129,17 @@ async function handlePaid(
     await triggerFulfilment(providerOrderId);
   }
 
-  // Confirmation email, AFTER the order commit (email.md send-after-commit). Called on every
-  // outcome ('inserted' AND 'duplicate_*'): the send is gated on the order's OWN marker, not
-  // this event's ledger claim, so a redelivery after a crash-during-email recovers the
-  // receipt (prefer-delivery model). Never throws.
-  await sendOrderConfirmationForOrder(admin, providerOrderId);
+  if (outcome === "inserted" || outcome === "duplicate_event") {
+    let retryableEmailFailure = false;
+    await sendOrderConfirmationForOrder(admin, providerOrderId, {
+      onRetryableFailure: () => {
+        retryableEmailFailure = true;
+      },
+    });
+    if (retryableEmailFailure) {
+      throw new Error("order confirmation email requires retry");
+    }
+  }
 
   return NextResponse.json({ received: true, result: outcome });
 }
