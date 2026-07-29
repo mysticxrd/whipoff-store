@@ -4,7 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "prebuild": "node scripts/assert-sentry-build-env.mjs",
     "build": "next build",
+    "postbuild": "node scripts/assert-no-public-source-maps.mjs",
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",

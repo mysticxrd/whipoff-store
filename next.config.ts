@@ -3,6 +3,9 @@ import { withSentryConfig } from "@sentry/nextjs";
 
 const deployEnvironment = process.env.VERCEL_ENV ?? process.env.NODE_ENV ?? "development";
 const releaseName = process.env.VERCEL_GIT_COMMIT_SHA;
+const isProductionDeploy = process.env.VERCEL_ENV === "production";
+const shouldUploadSourceMaps =
+  process.env.VERCEL_ENV === "preview" || isProductionDeploy;
 
 const nextConfig: NextConfig = {
   // Expose only the non-sensitive deployment label so browser telemetry is tagged the
@@ -31,7 +34,13 @@ const nextConfig: NextConfig = {
 
 export default withSentryConfig(nextConfig, {
   org: "whipoff",
-  project: "whipoff-preview",
+  // Keep Preview and Production releases, artifacts, and issues in dedicated projects.
+  project: isProductionDeploy ? "whipoff-production" : "whipoff-preview",
+  // A release without uploaded maps is not deployable. Throwing here makes any release
+  // creation or source-map upload failure stop the Vercel build.
+  errorHandler(error) {
+    throw error;
+  },
   telemetry: false,
   silent: !process.env.CI,
   release: {
@@ -44,10 +53,11 @@ export default withSentryConfig(nextConfig, {
           }
         : undefined,
   },
-  // The Sentry plugin reads its standard server-only auth environment variable internally.
-  // Uploads are limited to Preview; local and Production builds do not attempt them.
+  // Sentry consumes its standard auth-token environment variable internally.
+  // Preview and Production upload to their dedicated projects; local builds never upload.
+  // Delete generated maps after upload so the deployment does not serve them publicly.
   sourcemaps: {
-    disable: process.env.VERCEL_ENV !== "preview",
+    disable: !shouldUploadSourceMaps,
     deleteSourcemapsAfterUpload: true,
   },
   webpack: {
