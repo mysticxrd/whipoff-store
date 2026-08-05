@@ -2,7 +2,7 @@ import "server-only";
 
 import * as Sentry from "@sentry/nextjs";
 import { createRazorpayOrder } from "@/lib/razorpay";
-import { clientEnv } from "@/lib/env";
+import { assertRazorpayOrderCredentialsConfigured } from "@/lib/env-server";
 import { getCart, getCartOwner } from "@/lib/cart/service";
 import { getVariantWithProduct } from "@/lib/catalog/queries";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -16,24 +16,10 @@ import {
 import type { ShippingDetails } from "@/lib/contracts";
 import { fail, ok, type ActionResult } from "@/lib/action-result";
 
-// Checkout creation — the ONE place that talks to Razorpay on the way in. The client sends
-// ONLY email + shipping address (Zod-parsed in the action); every amount is computed
-// server-side from the live server cart (payments.md: the client cannot influence money).
-// The pure math lives in lib/checkout/pure.ts (unit-tested); this module is the I/O shell:
-//   1. enrich + hard stock-check the cart;
-//   2. compute amounts and stage the full cart snapshot into checkout_sessions (the row the
-//      webhook's record_paid_order will consume — Razorpay notes cannot carry a cart);
-//   3. create the Razorpay Order for the staged total (receipt = staging row id);
-//   4. stamp the provider_order_id back onto the staging row.
-// The staging write uses the ADMIN client because checkout_sessions is deny-all under RLS
-// (rls.sql): shoppers never read/write it directly; it exists only for the webhook.
-
 export type CheckoutCreated = {
-  /** Razorpay order id (order_…) — the modal's `order_id` and our correlation key. */
   providerOrderId: string;
   amountMinor: number;
   currency: string;
-  /** Prefill for the Razorpay modal. */
   email: string;
   keyId: string;
 };
@@ -42,9 +28,14 @@ export async function createCheckout(input: {
   email: string;
   shipping: ShippingDetails;
 }): Promise<ActionResult<CheckoutCreated>> {
-  const keyId = clientEnv.NEXT_PUBLIC_RAZORPAY_KEY_ID;
-  if (!keyId) {
-    return fail({ code: "validation", message: "Payments aren't configured yet." });
+  let keyId: string;
+  try {
+    // Fail before any cart/admin/session work if either half of this deployment's Razorpay
+    // credential pair is missing or mode-mismatched. A bad configuration must never create an
+    // orphaned checkout_sessions row containing shopper data.
+    keyId = assertRazorpayOrderCredentialsConfigured();
+  } catch {
+    return fail({ code: "validation", message: "Payments aren't configured for this environment." });
   }
 
   const cart = await getCart();
@@ -52,8 +43,6 @@ export async function createCheckout(input: {
     return fail({ code: "validation", message: "Your cart is empty." });
   }
 
-  // Enrich each line with LIVE variant fields (sku for the snapshot, inventory for the hard
-  // stock check) — re-resolving from the catalog so nothing stale or client-shaped is priced.
   const enriched: CheckoutLine[] = [];
   for (const line of cart.lines) {
     const found = await getVariantWithProduct(line.variantId);
@@ -80,17 +69,12 @@ export async function createCheckout(input: {
   }
 
   const owner = await getCartOwner();
-  // Authenticated shoppers checkout under their ACCOUNT email — the form value is ignored for
-  // them (contracts.createCheckoutSchema note); guests use the form email.
   const email = owner.email ?? input.email;
   const amounts = computeCheckoutAmounts(enriched);
   const currency = cart.currency.toUpperCase();
 
   const admin = createAdminClient();
   try {
-    // Stage first, then create the provider order: an orphaned 'created' staging row is inert
-    // (deny-all, never consumed), whereas a Razorpay order with no staging row would pay into
-    // session_not_found.
     const { data: staged, error: stageError } = await admin
       .from("checkout_sessions")
       .insert({
@@ -112,8 +96,6 @@ export async function createCheckout(input: {
           country: input.shipping.country,
         },
         items: buildItemsSnapshot(enriched),
-        // provider_order_id is NOT NULL — stamp a placeholder the Razorpay call overwrites;
-        // unique per row so concurrent checkouts can't collide.
         provider_order_id: `pending_${crypto.randomUUID()}`,
       })
       .select("id")

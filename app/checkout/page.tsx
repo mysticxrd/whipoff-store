@@ -3,25 +3,25 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { getCart } from "@/lib/cart/service";
-import { clientEnv } from "@/lib/env";
+import { getRazorpayKeyId } from "@/lib/env-server";
 import { formatPrice } from "@/lib/money";
 import { CheckoutForm } from "@/components/checkout/checkout-form";
 
 export const metadata: Metadata = { title: "Checkout" };
 
-/**
- * /checkout — the shipping/contact form plus the Razorpay Standard Checkout launcher
- * (Razorpay's modal owns the PAYMENT surface — cards & UPI — but not addresses, so the
- * "Ship to" form lives here). This page is only the framing: a way back, a totals strip for
- * drawer-parity confidence, and the form. Minimal distractions by design (design_system.md
- * checkout pattern). Guest-accessible on purpose (Gate-1 locked decision) — NOT in
- * PROTECTED_PREFIXES.
- */
 export default async function CheckoutPage() {
   const cart = await getCart();
   if (cart.lines.length === 0) redirect("/");
 
-  const configured = Boolean(clientEnv.NEXT_PUBLIC_RAZORPAY_KEY_ID);
+  // The form is rendered only when the server confirms the key is safe for this deployment.
+  // This prevents an accidentally Preview-scoped rzp_live_ key from ever reaching Checkout.
+  let configured = false;
+  try {
+    getRazorpayKeyId();
+    configured = true;
+  } catch {
+    configured = false;
+  }
 
   return (
     <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-6 sm:py-10">
@@ -55,8 +55,8 @@ export default async function CheckoutPage() {
             Payments aren&rsquo;t switched on yet.
           </h2>
           <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-            This environment has no Razorpay key configured, so checkout can&rsquo;t start.
-            Your cart is safe — come back once payments are live.
+            This environment has no safely scoped Razorpay key configured, so checkout can&rsquo;t
+            start. Your cart is safe — come back once payments are live.
           </p>
         </div>
       )}

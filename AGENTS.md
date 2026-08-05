@@ -1,4 +1,4 @@
-# AGENTS.md — Whipoff store
+# AGENTS.md - Whipoff store
 
 Read this file first, then `HANDOFF.md` for the current release state and deployment runbook.
 
@@ -47,11 +47,14 @@ Required variables:
 
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `SUPABASE_SERVICE_ROLE_KEY` — server only
+- `SUPABASE_SERVICE_ROLE_KEY` - server only
 - `NEXT_PUBLIC_APP_URL`
-- `NEXT_PUBLIC_RAZORPAY_KEY_ID` — test mode must begin with `rzp_test_`
-- `RAZORPAY_KEY_SECRET` — server only
-- `RAZORPAY_WEBHOOK_SECRET` — server only
+- `NEXT_PUBLIC_RAZORPAY_KEY_ID` - `rzp_live_` only in Vercel Production; `rzp_test_` in
+  Preview, local, and test environments
+- `RAZORPAY_TEST_KEY_SECRET` / `RAZORPAY_TEST_WEBHOOK_SECRET` - server-only non-Production
+  credential pair
+- `RAZORPAY_LIVE_KEY_SECRET` / `RAZORPAY_LIVE_WEBHOOK_SECRET` - server-only Production
+  credential pair; never configure it outside Vercel Production
 
 Optional variables:
 
@@ -61,6 +64,17 @@ Optional variables:
 - `NEXT_PUBLIC_POSTHOG_HOST`
 - `NEXT_PUBLIC_GA4_ID`
 - `NEXT_PUBLIC_SENTRY_DSN`
+
+## Razorpay credential separation
+
+`VERCEL_ENV`, not `NODE_ENV`, selects the credential class. The complete selected Orders API pair
+is validated before any checkout staging write or provider call. Generic Razorpay secret names are
+retired and ignored by runtime.
+
+- Vercel Production: `NEXT_PUBLIC_RAZORPAY_KEY_ID=rzp_live_...`,
+  `RAZORPAY_LIVE_KEY_SECRET`, and `RAZORPAY_LIVE_WEBHOOK_SECRET`.
+- Preview, local, and test: `NEXT_PUBLIC_RAZORPAY_KEY_ID=rzp_test_...`,
+  `RAZORPAY_TEST_KEY_SECRET`, and `RAZORPAY_TEST_WEBHOOK_SECRET`.
 
 ## Code map
 
@@ -94,8 +108,10 @@ tests/                            Vitest unit tests
 3. The Razorpay webhook is the sole writer of paid-order state. It verifies the raw-body HMAC
    before parsing, deduplicates events, enforces unique `provider_order_id`, and checks the paid
    amount against the server-staged total.
-4. Razorpay stays in test mode until a separately approved live-payment change. The
-   `NEXT_PUBLIC_RAZORPAY_KEY_ID` Zod rule deliberately rejects non-`rzp_test_` keys.
+4. Razorpay credential mode follows `VERCEL_ENV`, never `NODE_ENV`: Vercel Production requires
+   `rzp_live_` plus the live server-only pair; Preview/local require `rzp_test_` plus the test
+   pair. The full selected Orders API pair is validated before checkout staging or a provider
+   call; generic Razorpay secret names are intentionally ignored.
 5. Store money as integer paise in INR. Never use floating-point arithmetic for prices or totals.
 6. Validate every Server Action input with the schemas in `lib/contracts.ts` before database work.
 7. Test the payment migration on an isolated Supabase preview/branch database first. It renames
@@ -107,6 +123,16 @@ tests/                            Vitest unit tests
 Unit tests cover cart math, checkout pricing, money, contracts, webhook verification, and email
 orchestration. Payment, webhook delivery, authentication, RLS, and telemetry require a real
 Supabase branch, Razorpay test account, and Vercel preview. Follow `HANDOFF.md` exactly.
+
+## Collaboration mode: guide-first deployment
+
+For deployment, cloud setup, and other externally visible work, default to **guide-first**:
+give the user one clear next action at a time, let them operate provider dashboards and enter
+secrets themselves, then verify the outcome before proceeding. Do not use autonomous browser
+automation for routine setup or navigation. Reserve autonomous execution for scoped code changes,
+local tests, and diagnosing a reported failure. Always stop for the user at irreversible,
+financial, credential, production-promotion, or account-configuration steps unless they explicitly
+ask the agent to perform that exact action.
 
 ## Workspace relationship
 

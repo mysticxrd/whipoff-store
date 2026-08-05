@@ -1,19 +1,13 @@
 import { describe, it, expect, vi } from "vitest";
 import { createHmac } from "node:crypto";
 
-// Signature-verification semantics for lib/razorpay.ts — the two HMAC gates the checkout
-// callback (verifyPaymentSignature) and the webhook route (verifyWebhookSignature) rely on.
-// No network, no real keys: env-server is mocked to fixed secrets and expected digests are
-// minted here with the SAME node crypto Razorpay uses, so a green test proves our verifier
-// matches Razorpay's contract byte-for-byte AND rejects every forgery/tamper.
-
 const KEY_SECRET = "rzp_key_secret_for_unit_tests_only";
 const WEBHOOK_SECRET = "rzp_webhook_secret_for_unit_tests_only";
 const WRONG_SECRET = "a_completely_different_secret_value";
 
 vi.mock("server-only", () => ({}));
-vi.mock("@/lib/env", () => ({ clientEnv: { NEXT_PUBLIC_RAZORPAY_KEY_ID: "rzp_test_x" } }));
 vi.mock("@/lib/env-server", () => ({
+  getRazorpayKeyId: () => "rzp_test_x",
   getRazorpayKeySecret: () => KEY_SECRET,
   getRazorpayWebhookSecret: () => WEBHOOK_SECRET,
 }));

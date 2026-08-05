@@ -12,14 +12,13 @@ const clientEnvSchema = z.object({
     .string()
     .min(1, "NEXT_PUBLIC_SUPABASE_ANON_KEY is required"),
   NEXT_PUBLIC_APP_URL: z.url().default("http://localhost:3000"),
-  // Razorpay KEY ID only (the publishable half — the browser needs it to open Standard
-  // Checkout; it grants nothing without the server-side key secret). Optional so builds stay
-  // green before keys arrive — /checkout renders a "payments not configured" state instead
-  // (mirrors the optional-PostHog posture). rzp_test_ enforced: TEST MODE ONLY this slice —
-  // going live is a separate approval + Edit-Source of this constraint (payments.md).
+  // The key ID is intentionally public — Razorpay Checkout needs it in the browser — but it
+  // is not a mode decision. lib/env-server.ts binds rzp_test_ to non-production deployments
+  // and rzp_live_ to Vercel Production before the key can create an order.
   NEXT_PUBLIC_RAZORPAY_KEY_ID: z
     .string()
-    .startsWith("rzp_test_", "Razorpay key id must be a TEST key (rzp_test_…) this slice")
+    .max(100, "Razorpay key id is unexpectedly long")
+    .regex(/^rzp_(?:test|live)_[A-Za-z0-9]+$/, "Invalid Razorpay key id")
     .optional(),
   NEXT_PUBLIC_POSTHOG_KEY: z.string().min(1).optional(),
   NEXT_PUBLIC_POSTHOG_HOST: z.url().default("https://us.i.posthog.com"),
