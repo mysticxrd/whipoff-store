@@ -8,7 +8,7 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Run on all routes except static assets, image files, and the Stripe webhook. Session
+  // Run on all routes except static assets, image files, and the payment webhook. Session
   // refresh happens everywhere; protected-route enforcement lives in updateSession().
   // api/webhooks is machine-to-machine: no shopper session to refresh, and nothing may
   // touch the request before the raw-body signature check (payments.md) — deliberate.

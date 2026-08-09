@@ -62,93 +62,96 @@ export function VariantSelector({
   }
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-6">
       {variants.length > 1 ? (
-        <div>
-          <div className="flex items-baseline justify-between">
-            <span className="text-sm font-bold text-foreground">Size</span>
-            <span className="text-sm text-muted-foreground">{selected.title} selected</span>
-          </div>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {variants.map((variant) => {
-              const isSelected = variant.id === selected.id;
-              const soldOut = variant.inventory_count <= 0;
-              return (
-                <button
-                  key={variant.id}
-                  type="button"
-                  onClick={() => select(variant)}
-                  aria-pressed={isSelected}
-                  className={cn(
-                    "min-h-11 rounded-md border-[1.5px] px-4 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-                    isSelected
-                      ? "border-green-800 bg-green-800 text-white"
-                      : "border-ink-300 bg-white text-foreground hover:border-ink-400",
-                    soldOut && "text-muted-foreground",
-                  )}
-                >
+        <fieldset className="grid gap-2.5 border-0 sm:grid-cols-3">
+          <legend className="mono-label mb-3 text-[0.62rem] text-bone/60 uppercase">Size</legend>
+          {variants.map((variant) => {
+            const isSelected = variant.id === selected.id;
+            const soldOut = variant.inventory_count <= 0;
+            return (
+              <button
+                key={variant.id}
+                type="button"
+                onClick={() => select(variant)}
+                aria-pressed={isSelected}
+                className={cn(
+                  "grid min-h-16 grid-cols-[1fr_auto] items-center gap-x-3 rounded-[14px] border px-4 py-3.5 text-left transition-[border-color,background-color] duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:grid-cols-1 sm:gap-y-1",
+                  isSelected
+                    ? "border-bone bg-bone/[0.08]"
+                    : "border-bone/[0.14] hover:border-bone/40",
+                  soldOut && "opacity-50",
+                )}
+              >
+                <span className="text-[1.05rem] font-medium text-foreground">
                   {variant.title}
-                  {soldOut ? " · sold out" : ""}
-                </button>
-              );
-            })}
-          </div>
-        </div>
+                </span>
+                <span className="row-start-2 sm:row-start-auto">
+                  <span className="mono-label text-[0.62rem] text-bone/60 uppercase">
+                    {soldOut ? "Sold out" : "In stock"}
+                  </span>
+                </span>
+                <span className="col-start-2 row-span-2 text-right font-medium sm:col-start-auto sm:row-span-1 sm:mt-1.5 sm:text-left">
+                  {formatPrice(variant.price_cents, variant.currency)}
+                  {LAUNCH_SALE_ACTIVE ? (
+                    <s className="ml-1.5 text-[0.82rem] font-normal text-bone/40">
+                      {formatWasPrice(variant.price_cents, variant.currency)}
+                    </s>
+                  ) : null}
+                </span>
+              </button>
+            );
+          })}
+        </fieldset>
       ) : null}
 
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex items-baseline gap-2">
-          <span className="font-display text-3xl font-black text-foreground">
-            {priceLabel}
-          </span>
+          <span className="font-display text-3xl font-medium text-foreground">{priceLabel}</span>
           {wasPriceLabel ? (
-            <span className="text-base font-semibold text-muted-foreground line-through">
-              {wasPriceLabel}
-            </span>
+            <s className="text-base font-normal text-bone/40">{wasPriceLabel}</s>
           ) : null}
         </div>
         {LAUNCH_SALE_ACTIVE ? (
-          <span className="inline-flex items-center rounded-full bg-danger px-3 py-1 text-xs font-bold text-white">
+          <span className="mono-label rounded-full border border-gold/55 px-3 py-1 text-[0.62rem] text-gold uppercase">
             Launch · Save 20%
           </span>
         ) : null}
       </div>
 
-      <div className="flex flex-wrap items-center gap-4">
-        <div className="inline-flex items-center overflow-hidden rounded-md border-[1.5px] border-ink-300 bg-white">
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-none items-center rounded-full border border-bone/[0.14]">
           <button
             type="button"
             onClick={() => setQty((q) => Math.max(1, q - 1))}
             aria-label="Decrease quantity"
-            className="grid size-11 place-items-center text-lg text-green-800 transition-colors hover:bg-green-50"
+            className="grid h-[54px] w-12 place-items-center rounded-full text-[1.2rem] text-bone/60 transition-colors hover:text-bone"
           >
             −
           </button>
-          <span className="min-w-11 text-center font-semibold tabular-nums text-foreground">
+          <span className="min-w-5 text-center font-mono text-[0.95rem] tabular-nums text-foreground">
             {qty}
           </span>
           <button
             type="button"
             onClick={() => setQty((q) => Math.min(qtyMax, q + 1))}
             aria-label="Increase quantity"
-            className="grid size-11 place-items-center text-lg text-green-800 transition-colors hover:bg-green-50"
+            className="grid h-[54px] w-12 place-items-center rounded-full text-[1.2rem] text-bone/60 transition-colors hover:text-bone"
           >
             +
           </button>
         </div>
-        <span className="text-sm text-muted-foreground">
-          {available ? "In stock · ships today" : "Out of stock"}
-        </span>
+        <div className="min-w-0 flex-1">
+          <AddToCartCta
+            priceLabel={priceLabel}
+            available={available}
+            pending={isAdding}
+            error={addError}
+            onAddToCart={handleAddToCart}
+            sticky={sticky}
+          />
+        </div>
       </div>
-
-      <AddToCartCta
-        priceLabel={priceLabel}
-        available={available}
-        pending={isAdding}
-        error={addError}
-        onAddToCart={handleAddToCart}
-        sticky={sticky}
-      />
     </div>
   );
 }

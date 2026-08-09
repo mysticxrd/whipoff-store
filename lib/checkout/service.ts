@@ -1,40 +1,48 @@
 import "server-only";
 
-import Stripe from "stripe";
 import * as Sentry from "@sentry/nextjs";
-import { getStripe } from "@/lib/stripe";
-import { clientEnv } from "@/lib/env";
+import { createRazorpayOrder } from "@/lib/razorpay";
+import { assertRazorpayOrderCredentialsConfigured } from "@/lib/env-server";
 import { getCart, getCartOwner } from "@/lib/cart/service";
 import { getVariantWithProduct } from "@/lib/catalog/queries";
+import { createAdminClient } from "@/lib/supabase/admin";
 import {
-  buildLineItemsFromCart,
-  buildSessionMetadata,
-  buildShippingOption,
+  buildItemsSnapshot,
+  buildOrderNotes,
+  computeCheckoutAmounts,
   findUnavailableLines,
   type CheckoutLine,
 } from "@/lib/checkout/pure";
+import type { ShippingDetails } from "@/lib/contracts";
 import { fail, ok, type ActionResult } from "@/lib/action-result";
 
-// Checkout-session creation — the ONE place that talks to Stripe on the way in. Takes NO
-// client input by design (payments.md: line items and amounts are computed server-side from
-// the live server cart; the client cannot influence money). The pure builders live in
-// lib/checkout/pure.ts (unit-tested); this module is the I/O shell around them.
+export type CheckoutCreated = {
+  providerOrderId: string;
+  amountMinor: number;
+  currency: string;
+  email: string;
+  keyId: string;
+};
 
-/**
- * Create an Embedded Checkout Session from the caller's live cart (guest cookie or DB cart).
- * Rejects empty carts and over-stock lines with typed errors BEFORE any Stripe call
- * (PRD AC#7). Returns the client secret the embedded surface mounts with.
- */
-export async function createEmbeddedCheckoutSession(): Promise<
-  ActionResult<{ clientSecret: string }>
-> {
+export async function createCheckout(input: {
+  email: string;
+  shipping: ShippingDetails;
+}): Promise<ActionResult<CheckoutCreated>> {
+  let keyId: string;
+  try {
+    // Fail before any cart/admin/session work if either half of this deployment's Razorpay
+    // credential pair is missing or mode-mismatched. A bad configuration must never create an
+    // orphaned checkout_sessions row containing shopper data.
+    keyId = assertRazorpayOrderCredentialsConfigured();
+  } catch {
+    return fail({ code: "validation", message: "Payments aren't configured for this environment." });
+  }
+
   const cart = await getCart();
   if (cart.lines.length === 0) {
     return fail({ code: "validation", message: "Your cart is empty." });
   }
 
-  // Enrich each line with LIVE variant fields (sku for the snapshot, inventory for the hard
-  // stock check) — re-resolving from the catalog so nothing stale or client-shaped is priced.
   const enriched: CheckoutLine[] = [];
   for (const line of cart.lines) {
     const found = await getVariantWithProduct(line.variantId);
@@ -61,73 +69,65 @@ export async function createEmbeddedCheckoutSession(): Promise<
   }
 
   const owner = await getCartOwner();
-  const params: Stripe.Checkout.SessionCreateParams = {
-    // "embedded_page" = Embedded Checkout on API 2026-06-24.dahlia (renamed from "embedded").
-    ui_mode: "embedded_page",
-    mode: "payment",
-    line_items: buildLineItemsFromCart(enriched),
-    shipping_options: [buildShippingOption(cart.subtotalMinor, cart.currency)],
-    shipping_address_collection: { allowed_countries: ["IN"] },
-    automatic_tax: { enabled: true },
-    metadata: buildSessionMetadata({
-      userId: owner.userId,
-      cartId: owner.cartId,
-      subtotalMinor: cart.subtotalMinor,
-    }),
-    // Stripe substitutes the session id itself — the return page re-parses it as untrusted.
-    return_url: `${clientEnv.NEXT_PUBLIC_APP_URL}/checkout/return?session_id={CHECKOUT_SESSION_ID}`,
-    ...(owner.email ? { customer_email: owner.email } : {}),
-  };
+  const email = owner.email ?? input.email;
+  const amounts = computeCheckoutAmounts(enriched);
+  const currency = cart.currency.toUpperCase();
 
+  const admin = createAdminClient();
   try {
-    const session = await createSessionWithTaxFallback(getStripe(), params);
-    if (!session.client_secret) {
-      return fail({ code: "unknown", message: "Couldn't start checkout. Please try again." });
-    }
-    return ok({ clientSecret: session.client_secret });
+    const { data: staged, error: stageError } = await admin
+      .from("checkout_sessions")
+      .insert({
+        user_id: owner.userId,
+        cart_id: owner.cartId,
+        email,
+        currency,
+        amount_subtotal_minor: amounts.subtotalMinor,
+        amount_shipping_minor: amounts.shippingMinor,
+        amount_tax_minor: amounts.taxMinor,
+        amount_total_minor: amounts.totalMinor,
+        shipping_name: input.shipping.name,
+        shipping_address: {
+          line1: input.shipping.line1,
+          line2: input.shipping.line2 ?? null,
+          city: input.shipping.city,
+          state: input.shipping.state,
+          postal_code: input.shipping.postal_code,
+          country: input.shipping.country,
+        },
+        items: buildItemsSnapshot(enriched),
+        provider_order_id: `pending_${crypto.randomUUID()}`,
+      })
+      .select("id")
+      .single();
+    if (stageError || !staged) throw stageError ?? new Error("staging insert returned no row");
+
+    const order = await createRazorpayOrder({
+      amountMinor: amounts.totalMinor,
+      currency,
+      receipt: staged.id,
+      notes: buildOrderNotes({
+        checkoutSessionId: staged.id,
+        userId: owner.userId,
+        cartId: owner.cartId,
+      }),
+    });
+
+    const { error: stampError } = await admin
+      .from("checkout_sessions")
+      .update({ provider_order_id: order.id })
+      .eq("id", staged.id);
+    if (stampError) throw stampError;
+
+    return ok({
+      providerOrderId: order.id,
+      amountMinor: amounts.totalMinor,
+      currency,
+      email,
+      keyId,
+    });
   } catch (error) {
     Sentry.captureException(error);
     return fail({ code: "unknown", message: "Couldn't start checkout. Please try again." });
   }
-}
-
-/**
- * Gate-1 decision #1 (Stripe Tax vs India origin): attempt `automatic_tax`; if the account
- * rejects it as unsupported, retry ONCE without it and log loudly. Tax then records as 0 —
- * acceptable for GST-inclusive Indian retail pricing. Any other error propagates untouched.
- */
-async function createSessionWithTaxFallback(
-  stripe: Stripe,
-  params: Stripe.Checkout.SessionCreateParams,
-): Promise<Stripe.Checkout.Session> {
-  try {
-    return await stripe.checkout.sessions.create(params);
-  } catch (error) {
-    if (!isAutomaticTaxUnsupported(error)) throw error;
-    console.warn(
-      JSON.stringify({
-        source: "checkout",
-        event: "automatic_tax_unsupported_fallback",
-        detail: error instanceof Error ? error.message : String(error),
-      }),
-    );
-    Sentry.captureMessage(
-      "Stripe automatic_tax unsupported on this account — session created without it (tax=0)",
-      "warning",
-    );
-    const withoutTax = { ...params };
-    delete withoutTax.automatic_tax;
-    return stripe.checkout.sessions.create(withoutTax);
-  }
-}
-
-function isAutomaticTaxUnsupported(error: unknown): boolean {
-  if (!(error instanceof Stripe.errors.StripeInvalidRequestError)) return false;
-  const haystack = `${error.param ?? ""} ${error.message}`.toLowerCase();
-  return (
-    haystack.includes("automatic_tax") ||
-    haystack.includes("automatic tax") ||
-    haystack.includes("origin address") ||
-    haystack.includes("head office")
-  );
 }

@@ -1,28 +1,26 @@
 import "server-only";
 
 import { z } from "zod";
+import { clientEnv } from "@/lib/env";
 
 // Server-side secrets — the counterpart to lib/env.ts (which is NEXT_PUBLIC_* only).
 // `server-only` guarantees none of this can be imported into a client bundle
 // (security_shield.md flaw #1). Each secret is parsed LAZILY at first use, not at module
-// load, so builds and non-payment pages stay green before keys are configured — only the
-// code path that actually needs a secret fails, with a pointed message.
-//
-// TEST KEYS ONLY this slice (payments.md): the sk_test_ prefix is enforced by the schema
-// itself. Going live is a deliberate Edit-Source change behind the verify gate + explicit
-// approval — a live key pasted into .env.local fails validation by design.
+// load, so builds and non-payment pages stay green before keys are configured.
 
-const stripeSecretKeySchema = z
-  .string()
-  .startsWith("sk_test_", "STRIPE_SECRET_KEY must be a TEST key (sk_test_…) this slice");
+export type RazorpayMode = "test" | "live";
 
-const stripeWebhookSecretSchema = z
+const razorpayKeySecretSchema = z
   .string()
-  .startsWith("whsec_", "STRIPE_WEBHOOK_SECRET must be a webhook signing secret (whsec_…)");
+  .min(16, "Razorpay key secret looks too short");
+
+const razorpayWebhookSecretSchema = z
+  .string()
+  .min(8, "Razorpay webhook secret looks too short");
 
 const supabaseServiceRoleKeySchema = z
   .string()
-  .min(1, "SUPABASE_SERVICE_ROLE_KEY is required for the Stripe webhook order write");
+  .min(1, "SUPABASE_SERVICE_ROLE_KEY is required for the payment webhook order write");
 
 // Slice 5 (email): Resend key shape. re_ is Resend's only key prefix (test vs live is a
 // domain/sandbox distinction, not a key prefix — the sandbox posture is enforced by the
@@ -40,18 +38,90 @@ function parseSecret<T>(schema: z.ZodType<T>, name: string, value: string | unde
   return parsed.data;
 }
 
-/** Stripe secret key (session creation + webhook verification). Server-only, test-mode enforced. */
-export function getStripeSecretKey(): string {
-  return parseSecret(stripeSecretKeySchema, "STRIPE_SECRET_KEY", process.env.STRIPE_SECRET_KEY);
+/**
+ * Production is the sole deployment class that can use live Razorpay credentials. Vercel
+ * supplies VERCEL_ENV as `production` only for Production deployments; local development and
+ * every Preview deployment deliberately resolve to test mode. Never use NODE_ENV here: Next
+ * sets it to `production` for Preview builds too.
+ */
+export function getRazorpayMode(vercelEnv: string | undefined = process.env.VERCEL_ENV): RazorpayMode {
+  return vercelEnv === "production" ? "live" : "test";
 }
 
-/** Stripe webhook signing secret (raw-body signature verification, payments.md). */
-export function getStripeWebhookSecret(): string {
-  return parseSecret(
-    stripeWebhookSecretSchema,
-    "STRIPE_WEBHOOK_SECRET",
-    process.env.STRIPE_WEBHOOK_SECRET,
-  );
+/** Environment-variable names are mode-specific: no generic secret can cross environments. */
+export function getRazorpaySecretNames(mode: RazorpayMode): {
+  keySecret: "RAZORPAY_TEST_KEY_SECRET" | "RAZORPAY_LIVE_KEY_SECRET";
+  webhookSecret: "RAZORPAY_TEST_WEBHOOK_SECRET" | "RAZORPAY_LIVE_WEBHOOK_SECRET";
+} {
+  return mode === "live"
+    ? {
+        keySecret: "RAZORPAY_LIVE_KEY_SECRET",
+        webhookSecret: "RAZORPAY_LIVE_WEBHOOK_SECRET",
+      }
+    : {
+        keySecret: "RAZORPAY_TEST_KEY_SECRET",
+        webhookSecret: "RAZORPAY_TEST_WEBHOOK_SECRET",
+      };
+}
+
+/**
+ * Bind the publishable key ID to the authoritative deployment class. A Preview with a copied
+ * rzp_live_ ID, or Production with a stale rzp_test_ ID, fails closed before any provider call.
+ */
+export function getRazorpayKeyIdForMode(
+  keyId: string | undefined,
+  mode: RazorpayMode,
+): string {
+  if (!keyId) {
+    throw new Error("Razorpay is not configured (NEXT_PUBLIC_RAZORPAY_KEY_ID missing)");
+  }
+  const requiredPrefix = mode === "live" ? "rzp_live_" : "rzp_test_";
+  if (!keyId.startsWith(requiredPrefix)) {
+    throw new Error(
+      `Razorpay ${mode} mode requires NEXT_PUBLIC_RAZORPAY_KEY_ID to start with ${requiredPrefix}`,
+    );
+  }
+  return keyId;
+}
+
+/** The only server-approved publishable key ID for this deployment. */
+export function getRazorpayKeyId(): string {
+  return getRazorpayKeyIdForMode(clientEnv.NEXT_PUBLIC_RAZORPAY_KEY_ID, getRazorpayMode());
+}
+
+/**
+ * Razorpay key secret — selected only by the Vercel deployment class and never exposed to the
+ * client. Test and live deployments intentionally use different variable names.
+ */
+export function getRazorpayKeySecret(): string {
+  const { keySecret } = getRazorpaySecretNames(getRazorpayMode());
+  const value =
+    keySecret === "RAZORPAY_LIVE_KEY_SECRET"
+      ? process.env.RAZORPAY_LIVE_KEY_SECRET
+      : process.env.RAZORPAY_TEST_KEY_SECRET;
+  return parseSecret(razorpayKeySecretSchema, keySecret, value);
+}
+
+/**
+ * Validate the complete Orders API credential pair before any checkout-side effect. Returning
+ * only the public key ID prevents a caller from accidentally carrying a private value onward.
+ * Checkout/session staging must call this before it creates an admin client or writes shopper
+ * data: a missing or mis-scoped secret is a configuration failure, not a payment attempt.
+ */
+export function assertRazorpayOrderCredentialsConfigured(): string {
+  const keyId = getRazorpayKeyId();
+  getRazorpayKeySecret();
+  return keyId;
+}
+
+/** Raw-body webhook secret, selected using the same strict deployment binding as the key pair. */
+export function getRazorpayWebhookSecret(): string {
+  const { webhookSecret } = getRazorpaySecretNames(getRazorpayMode());
+  const value =
+    webhookSecret === "RAZORPAY_LIVE_WEBHOOK_SECRET"
+      ? process.env.RAZORPAY_LIVE_WEBHOOK_SECRET
+      : process.env.RAZORPAY_TEST_WEBHOOK_SECRET;
+  return parseSecret(razorpayWebhookSecretSchema, webhookSecret, value);
 }
 
 /** Supabase service-role key — used ONLY by the webhook's order write (lib/supabase/admin.ts). */
@@ -76,9 +146,6 @@ export function getResendApiKey(): string | null {
 }
 
 // PRD Gate-1 #6 (human-set): PLACEHOLDER sender until the domain is verified at 04_ship.
-// onboarding@resend.dev is Resend's built-in sandbox sender (works with any key, delivers only
-// to the account owner's inbox) — the email twin of Stripe's sk_test_ posture. The real
-// verified `orders@…` sender is a 04_ship env change, not a code change.
 const DEFAULT_EMAIL_FROM = "Whipoff <onboarding@resend.dev>";
 
 /** Sender identity for transactional email. Not a secret, but a server-only concern. */

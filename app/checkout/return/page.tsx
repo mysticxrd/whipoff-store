@@ -1,29 +1,29 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import type Stripe from "stripe";
-import { CheckCircle2, Clock3, TimerOff } from "lucide-react";
-import { getStripe } from "@/lib/stripe";
+import { CheckCircle2, Clock3, XCircle } from "lucide-react";
 import { checkoutReturnQuerySchema } from "@/lib/contracts";
-import { deriveOrderStatus } from "@/lib/checkout/pure";
+import { getCheckoutReturnState } from "@/lib/checkout/status";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { FinalizeReturn } from "@/components/checkout/finalize-return";
 
 export const metadata: Metadata = { title: "Order status" };
 
+// Never cache: this page races the webhook — the same order_id flips processing → confirmed.
+export const dynamic = "force-dynamic";
+
 /**
- * /checkout/return — where Stripe hands the shopper back ({CHECKOUT_SESSION_ID} substituted
- * into the return_url). PRESENTATIONAL ONLY (payments.md): the page reads the session and
- * shows its state; order truth is written exclusively by the webhook, and NOTHING here
- * triggers fulfilment. The session_id arrives via the shopper's browser → strict Zod parse,
- * invalid/unknown = 404 (same posture as the PDP slug).
+ * /checkout/return — where the checkout form sends the shopper after the Razorpay modal
+ * closes (?order_id=order_…). PRESENTATIONAL ONLY (payments.md): the page derives a coarse
+ * state server-side (lib/checkout/status.ts); order truth is written exclusively by the
+ * webhook, and NOTHING here triggers fulfilment. The order_id arrives via the shopper's
+ * browser → strict Zod parse, invalid/unknown = 404 (same posture as the PDP slug).
  *
- * NO buyer PII or amount is rendered here: a session_id is NOT proof of ownership, so echoing
- * customer_details.email / amount_total would let anyone holding a valid cs_... id read another
- * shopper's email + total (03_verify Low — "drop the echo"). The order-confirmation email
- * (Slice 5, Resend) is the channel of record for those details; this page only reports the
- * coarse payment OUTCOME (confirmed vs. still processing), which leaks nothing sensitive.
+ * NO buyer PII or amount is rendered here: an order_… id is NOT proof of ownership, so
+ * echoing the staged email / ₹total would let anyone holding a valid id read another
+ * shopper's details (the Stripe-era "drop the echo" finding — posture preserved verbatim).
+ * The order-confirmation email (Resend) is the channel of record; this page only reports
+ * the coarse payment OUTCOME, which leaks nothing sensitive.
  */
 export default async function CheckoutReturnPage({
   searchParams,
@@ -33,77 +33,51 @@ export default async function CheckoutReturnPage({
   const parsed = checkoutReturnQuerySchema.safeParse(await searchParams);
   if (!parsed.success) notFound();
 
-  let session: Stripe.Checkout.Session;
-  try {
-    session = await getStripe().checkout.sessions.retrieve(parsed.data.session_id);
-  } catch {
-    notFound(); // unknown / foreign-account session id — nothing to show
-  }
+  const state = await getCheckoutReturnState(parsed.data.order_id);
+  if (state === "not_found") notFound();
 
-  if (session.status === "complete") {
-    // Same "is-paid" definition the webhook order-write uses (deriveOrderStatus): `paid` and
-    // `no_payment_required` count as paid; an async method still confirming is "unpaid". This is
-    // the ONLY thing read off the session for display — no email, no total (see the file header).
-    const paid = deriveOrderStatus(session.payment_status) === "paid";
-
+  if (state === "confirmed") {
     return (
       <StatusShell>
-        {paid ? (
-          <>
-            {/* Payment captured — safe to clear the cart now (the webhook can't reach the guest
-                cookie; only this in-request Server Action can). The still-confirming async case
-                is the pending branch below: we deliberately do NOT clear there, so a later
-                async_payment_failed leaves the cart intact to retry. */}
-            <FinalizeReturn sessionId={session.id} />
-            <StatusIcon tone="success">
-              <CheckCircle2 className="size-7" strokeWidth={1.7} />
-            </StatusIcon>
-            <h1 className="mt-5 font-display text-2xl font-black text-foreground">
-              Order confirmed. Foam incoming.
-            </h1>
-            <p className="mt-2 max-w-[38ch] text-sm leading-relaxed text-muted-foreground">
-              Payment received — your receipt is on its way to your inbox.
-            </p>
-          </>
-        ) : (
-          <>
-            <StatusIcon tone="pending">
-              <Clock3 className="size-7" strokeWidth={1.7} />
-            </StatusIcon>
-            <h1 className="mt-5 font-display text-2xl font-black text-foreground">
-              Payment processing…
-            </h1>
-            <p className="mt-2 max-w-[38ch] text-sm leading-relaxed text-muted-foreground">
-              Your payment method is still confirming. Your order is locked in — we&rsquo;ll
-              email you the moment it settles.
-            </p>
-          </>
-        )}
-        <Link href="/products" className={cn(buttonVariants({ size: "lg" }), "mt-6")}>
+        <StatusIcon tone="success">
+          <CheckCircle2 className="size-7" strokeWidth={1.7} />
+        </StatusIcon>
+        <h1 className="mt-5 font-display text-2xl font-black text-foreground">
+          Order confirmed. Foam incoming.
+        </h1>
+        <p className="mt-2 max-w-[38ch] text-sm leading-relaxed text-muted-foreground">
+          Payment received — your receipt is on its way to your inbox.
+        </p>
+        <Link
+          href="/"
+          className={cn(buttonVariants({ size: "lg" }), "mt-6")}
+        >
           Continue shopping
         </Link>
       </StatusShell>
     );
   }
 
-  if (session.status === "open") {
-    // Abandoned mid-payment: the session is still payable — offer the way back (PRD AC#4).
+  if (state === "failed") {
+    // failed_at telemetry, not a terminal state — the cart was never cleared on this path
+    // (verifyPayment only fires on a signed success), so retrying is one click.
     return (
       <StatusShell>
-        <StatusIcon tone="pending">
-          <Clock3 className="size-7" strokeWidth={1.7} />
+        <StatusIcon tone="muted">
+          <XCircle className="size-7" strokeWidth={1.7} />
         </StatusIcon>
         <h1 className="mt-5 font-display text-2xl font-black text-foreground">
-          Your checkout is still open.
+          That payment didn&rsquo;t go through.
         </h1>
         <p className="mt-2 max-w-[38ch] text-sm leading-relaxed text-muted-foreground">
-          No payment was taken. Your cart is exactly as you left it.
+          No money was taken. Your cart is exactly as you left it — try again whenever
+          you&rsquo;re ready.
         </p>
         <Link href="/checkout" className={cn(buttonVariants({ size: "lg" }), "mt-6")}>
-          Resume checkout
+          Try again
         </Link>
         <Link
-          href="/products"
+          href="/"
           className={cn(buttonVariants({ variant: "outline", size: "lg" }), "mt-2")}
         >
           Back to shop
@@ -112,20 +86,21 @@ export default async function CheckoutReturnPage({
     );
   }
 
-  // expired
+  // processing — payment done (or still settling) client-side; the webhook hasn't landed yet.
   return (
     <StatusShell>
-      <StatusIcon tone="muted">
-        <TimerOff className="size-7" strokeWidth={1.7} />
+      <StatusIcon tone="pending">
+        <Clock3 className="size-7" strokeWidth={1.7} />
       </StatusIcon>
       <h1 className="mt-5 font-display text-2xl font-black text-foreground">
-        That checkout expired.
+        Payment processing…
       </h1>
       <p className="mt-2 max-w-[38ch] text-sm leading-relaxed text-muted-foreground">
-        No payment was taken — start again whenever you&rsquo;re ready.
+        We&rsquo;re confirming your payment. This page updates on refresh — and we&rsquo;ll
+        email you the moment it settles.
       </p>
-      <Link href="/checkout" className={cn(buttonVariants({ size: "lg" }), "mt-6")}>
-        Start checkout again
+      <Link href="/" className={cn(buttonVariants({ size: "lg" }), "mt-6")}>
+        Continue shopping
       </Link>
     </StatusShell>
   );
@@ -150,8 +125,8 @@ function StatusIcon({
     <div
       className={cn(
         "grid size-16 place-items-center rounded-full",
-        tone === "success" && "bg-green-50 text-green-600",
-        tone === "pending" && "bg-green-50 text-green-800",
+        tone === "success" && "bg-success-bg text-success",
+        tone === "pending" && "bg-bone/10 text-gold",
         tone === "muted" && "bg-muted text-muted-foreground",
       )}
     >

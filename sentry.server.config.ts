@@ -1,12 +1,16 @@
 import * as Sentry from "@sentry/nextjs";
+import { scrubSentryEvent, scrubSentryTransaction } from "@/lib/sentry-scrub";
 
-// Server-side Sentry. No-ops without a DSN (Slice 0 placeholder env). Source-map upload
-// + withSentryConfig wrapping are added at cloud-wiring time (deploy runbook).
+// Server-side Sentry. withSentryConfig injects the release; VERCEL_ENV distinguishes
+// Preview from Production even though both execute with NODE_ENV=production.
 const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN;
 
 Sentry.init({
   dsn,
   enabled: Boolean(dsn),
   tracesSampleRate: 1,
-  environment: process.env.NODE_ENV,
+  environment: process.env.VERCEL_ENV ?? process.env.NODE_ENV,
+  sendDefaultPii: false,
+  beforeSend: scrubSentryEvent,
+  beforeSendTransaction: scrubSentryTransaction,
 });

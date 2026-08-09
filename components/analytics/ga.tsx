@@ -6,6 +6,10 @@ export function GoogleAnalytics() {
   const id = clientEnv.NEXT_PUBLIC_GA4_ID;
   if (!id) return null;
 
+  // Debug mode only marks Preview traffic for immediate provider-side DebugView
+  // verification. Production continues to use normal GA4 collection.
+  const previewDebug = process.env.VERCEL_ENV === "preview";
+
   return (
     <>
       <Script
@@ -13,7 +17,7 @@ export function GoogleAnalytics() {
         strategy="afterInteractive"
       />
       <Script id="ga4-init" strategy="afterInteractive">
-        {`window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${id}');`}
+        {`window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${id}',{debug_mode:${previewDebug}});`}
       </Script>
     </>
   );
