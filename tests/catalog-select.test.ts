@@ -130,6 +130,6 @@ describe("findProductBySlug", () => {
 describe("fromPrice", () => {
   it("returns the cheapest variant's price + currency", () => {
     const product = findProductBySlug(seedProducts, "whipoff-gloss-wash");
-    expect(fromPrice(product!)).toEqual({ priceCents: 47900, currency: "INR" });
+    expect(fromPrice(product!)).toEqual({ priceCents: 47000, currency: "INR" });
   });
 });

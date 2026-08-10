@@ -83,7 +83,12 @@ export function VariantSelector({
                   soldOut && "opacity-50",
                 )}
               >
-                <span className="text-[1.05rem] font-medium text-foreground">
+                <span
+                  className={cn(
+                    "text-[1.05rem] font-medium text-foreground",
+                    soldOut && "line-through",
+                  )}
+                >
                   {variant.title}
                 </span>
                 <span className="row-start-2 sm:row-start-auto">

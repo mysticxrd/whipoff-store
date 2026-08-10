@@ -34,8 +34,8 @@ const ITEMS = [
     q: "Shipping & returns?",
     a: (
       <>
-        Free shipping across India over ₹999. Orders before 2 PM IST ship the same day. Unopened
-        bottles return free within 30 days — no questions, no forms in triplicate.
+        Free shipping across India on every order. Orders before 2 PM IST ship the same day.
+        Unopened bottles return free within 30 days — no questions, no forms in triplicate.
       </>
     ),
   },

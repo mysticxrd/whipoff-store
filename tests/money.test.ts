@@ -40,13 +40,14 @@ describe("formatPriceRange", () => {
   });
 });
 
-describe("computeShippingMinor (Slice 2 — single-sourced free-ship threshold)", () => {
-  it("charges the flat fee below the threshold", () => {
-    expect(computeShippingMinor(0)).toBe(FLAT_SHIP_FEE_MINOR);
-    expect(computeShippingMinor(FREE_SHIP_THRESHOLD_MINOR - 1)).toBe(FLAT_SHIP_FEE_MINOR);
+describe("computeShippingMinor (always-free shipping)", () => {
+  it("returns zero below the legacy threshold when the flat fee is waived", () => {
+    expect(FLAT_SHIP_FEE_MINOR).toBe(0);
+    expect(computeShippingMinor(0)).toBe(0);
+    expect(computeShippingMinor(FREE_SHIP_THRESHOLD_MINOR - 1)).toBe(0);
   });
 
-  it("waives shipping at or above the threshold", () => {
+  it("returns zero at or above the legacy threshold", () => {
     expect(computeShippingMinor(FREE_SHIP_THRESHOLD_MINOR)).toBe(0);
     expect(computeShippingMinor(FREE_SHIP_THRESHOLD_MINOR + 1)).toBe(0);
   });
