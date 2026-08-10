@@ -35,10 +35,10 @@ const paidOrder = {
   email: "buyer@example.com",
   status: "paid",
   currency: "INR",
-  amount_subtotal_minor: 47900,
-  amount_shipping_minor: 4900,
+  amount_subtotal_minor: 47000,
+  amount_shipping_minor: 0,
   amount_tax_minor: 0,
-  amount_total_minor: 52800,
+  amount_total_minor: 47000,
   shipping_name: "Asha Kumar",
   shipping_address: { line1: "12 MG Road", city: "Bengaluru", country: "IN" },
   order_seq: 123,
@@ -52,9 +52,9 @@ const paidItems = [
     product_title: "Whipoff Gloss Wash",
     variant_title: "500 ml",
     sku: "WGW-500",
-    unit_price_minor: 47900,
+    unit_price_minor: 47000,
     quantity: 1,
-    line_total_minor: 47900,
+    line_total_minor: 47000,
   },
 ];
 
@@ -129,7 +129,7 @@ describe("sendOrderConfirmationForOrder", () => {
     ]);
     expect(h.captureServerEvent).toHaveBeenCalledWith(
       "order_confirmation_email_sent",
-      { provider_order_id: ORDER_ID, value_minor: 52800, currency: "INR" },
+      { provider_order_id: ORDER_ID, value_minor: 47000, currency: "INR" },
       "guest",
     );
     expect(h.captureMessage).not.toHaveBeenCalled();

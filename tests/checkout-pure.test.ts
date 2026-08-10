@@ -6,7 +6,6 @@ import {
   findUnavailableLines,
 } from "@/lib/checkout/pure";
 import type { CheckoutLine } from "@/lib/checkout/pure";
-import { FLAT_SHIP_FEE_MINOR, FREE_SHIP_THRESHOLD_MINOR } from "@/lib/money";
 
 const VARIANT_A = "c0000000-0000-4000-8000-000000000101";
 const VARIANT_B = "c0000000-0000-4000-8000-000000000102";
@@ -23,8 +22,8 @@ function checkoutLine(overrides: Partial<CheckoutLine> = {}): CheckoutLine {
     variantTitle: "500 ml",
     imageUrl: "gradient:whipoff-gloss-wash:0",
     quantity: 1,
-    unitPriceMinor: 47900,
-    lineTotalMinor: 47900,
+    unitPriceMinor: 47000,
+    lineTotalMinor: 47000,
     currency: "INR",
     inStock: true,
     sku: "WGW-500",
@@ -52,36 +51,35 @@ describe("findUnavailableLines", () => {
 });
 
 describe("computeCheckoutAmounts", () => {
-  it("charges flat shipping below the free-ship threshold with zero tax (GST-inclusive)", () => {
+  it("charges zero shipping below the legacy free-ship threshold with zero tax (GST-inclusive)", () => {
     const amounts = computeCheckoutAmounts([
-      checkoutLine({ unitPriceMinor: 47900, lineTotalMinor: 47900 }),
+      checkoutLine({ unitPriceMinor: 47000, lineTotalMinor: 47000 }),
     ]);
     expect(amounts).toEqual({
-      subtotalMinor: 47900,
-      shippingMinor: FLAT_SHIP_FEE_MINOR,
+      subtotalMinor: 47000,
+      shippingMinor: 0,
       taxMinor: 0,
-      totalMinor: 47900 + FLAT_SHIP_FEE_MINOR,
+      totalMinor: 47000,
     });
   });
 
-  it("waives shipping at/above the free-ship threshold", () => {
+  it("keeps shipping free at/above the legacy free-ship threshold", () => {
     const amounts = computeCheckoutAmounts([
       checkoutLine({ quantity: 3, unitPriceMinor: 40000, lineTotalMinor: 120000 }),
     ]);
     expect(amounts.subtotalMinor).toBe(120000);
     expect(amounts.shippingMinor).toBe(0);
     expect(amounts.totalMinor).toBe(120000);
-    expect(amounts.subtotalMinor).toBeGreaterThanOrEqual(FREE_SHIP_THRESHOLD_MINOR);
   });
 
   it("sums multiple lines from their line totals (never re-derived from client input)", () => {
     const amounts = computeCheckoutAmounts([
-      checkoutLine({ lineTotalMinor: 47900 }),
-      checkoutLine({ variantId: VARIANT_B, quantity: 2, lineTotalMinor: 95800 }),
+      checkoutLine({ lineTotalMinor: 47000 }),
+      checkoutLine({ variantId: VARIANT_B, quantity: 2, lineTotalMinor: 94000 }),
     ]);
-    expect(amounts.subtotalMinor).toBe(143700);
+    expect(amounts.subtotalMinor).toBe(141000);
     expect(amounts.shippingMinor).toBe(0);
-    expect(amounts.totalMinor).toBe(143700);
+    expect(amounts.totalMinor).toBe(141000);
   });
 });
 
@@ -94,9 +92,9 @@ describe("buildItemsSnapshot", () => {
         product_title: "Whipoff Gloss Wash",
         variant_title: "500 ml",
         sku: "WGW-500",
-        unit_price_minor: 47900,
+        unit_price_minor: 47000,
         quantity: 1,
-        line_total_minor: 47900,
+        line_total_minor: 47000,
         currency: "INR",
       },
     ]);

@@ -34,7 +34,7 @@ export function findUnavailableLines(lines: CheckoutLine[]): CheckoutLine[] {
 /**
  * The four staged amounts, computed ONCE here and written to both the Razorpay Order (total)
  * and the checkout_sessions row (all four). Shipping parity with the cart drawer: the SAME
- * `computeShippingMinor` the drawer uses (₹49 under the free-ship threshold, else ₹0), so the
+ * `computeShippingMinor` the drawer uses (always ₹0 while FLAT_SHIP_FEE_MINOR is waived), so the
  * Razorpay modal total always matches the drawer's total (PRD AC#2). Tax is 0 BY DESIGN —
  * GST-inclusive pricing (PRD Q3): the catalog price already contains GST, there is no
  * added-at-checkout tax line.

@@ -54,13 +54,13 @@ export function formatPriceRange(
   return `${formatPrice(minMinorUnits, currency)} – ${formatPrice(maxMinorUnits, currency)}`;
 }
 
-// Free-shipping threshold + flat fee (Slice 2 cart) — the SINGLE SOURCE for this copy, shared by
-// the announcement bar, the buy block's shipping blurb, and the cart drawer's progress bar. INR
-// only (Slice 1 posture). Changing the promo means editing these two numbers, nowhere else.
-export const FREE_SHIP_THRESHOLD_MINOR = 99_900; // ₹999
-export const FLAT_SHIP_FEE_MINOR = 4_900; // ₹49
+// Free shipping on every order — FLAT_SHIP_FEE_MINOR is 0 so cart/checkout always charge ₹0
+// shipping. FREE_SHIP_THRESHOLD_MINOR stays as a single-sourced constant for any remaining
+// progress-bar math, but with a zero fee it is effectively unused. INR only (Slice 1 posture).
+export const FREE_SHIP_THRESHOLD_MINOR = 99_900; // ₹999 (legacy threshold; fee is always waived)
+export const FLAT_SHIP_FEE_MINOR = 0; // always free — no delivery charge
 
-/** Shipping fee for a given subtotal: flat fee below the free-shipping threshold, else free. */
+/** Shipping fee for a given subtotal: always free while FLAT_SHIP_FEE_MINOR is 0. */
 export function computeShippingMinor(subtotalMinor: number): number {
   return subtotalMinor >= FREE_SHIP_THRESHOLD_MINOR ? 0 : FLAT_SHIP_FEE_MINOR;
 }

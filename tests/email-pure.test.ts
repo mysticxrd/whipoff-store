@@ -15,10 +15,10 @@ const baseOrder = {
   user_id: null as string | null,
   email: "buyer@example.com",
   currency: "INR",
-  amount_subtotal_minor: 47900,
+  amount_subtotal_minor: 47000,
   amount_shipping_minor: 0,
-  amount_tax_minor: 4900,
-  amount_total_minor: 52800,
+  amount_tax_minor: 0,
+  amount_total_minor: 47000,
   shipping_name: "Asha Kumar" as string | null,
   shipping_address: {
     line1: "12 MG Road",
@@ -37,9 +37,9 @@ const baseItems = [
     product_title: "Whipoff Gloss Wash",
     variant_title: "500 ml",
     sku: "WGW-500" as string | null,
-    unit_price_minor: 47900,
+    unit_price_minor: 47000,
     quantity: 1,
-    line_total_minor: 47900,
+    line_total_minor: 47000,
   },
 ];
 
@@ -55,7 +55,7 @@ describe("composeOrderConfirmationEmail", () => {
     expect(result.receipt.orderNumber).toBe("WO-000123");
     expect(result.receipt.isGuest).toBe(true);
     expect(result.receipt.placedAt).toBe(baseOrder.paid_at);
-    expect(result.receipt.amountTotalMinor).toBe(52800);
+    expect(result.receipt.amountTotalMinor).toBe(47000);
     expect(result.receipt.lines).toHaveLength(1);
   });
 

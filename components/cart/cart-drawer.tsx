@@ -61,7 +61,6 @@ export function CartDrawer() {
   }, [isOpen, close]);
 
   const hasItems = cart.lines.length > 0;
-  const freeShipUnlocked = cart.freeShipRemainingMinor <= 0;
 
   return (
     <div
@@ -100,28 +99,6 @@ export function CartDrawer() {
 
         {hasItems ? (
           <>
-            <div className="border-b border-bone/10 px-5 py-4">
-              <p className="mono-label text-bone/60 uppercase">
-                {freeShipUnlocked
-                  ? "Free shipping unlocked."
-                  : `${formatPrice(cart.freeShipRemainingMinor, cart.currency)} away from free shipping`}
-              </p>
-              <div className="mt-2.5 h-[3px] overflow-hidden rounded-full bg-bone/10">
-                <div
-                  className={cn(
-                    "h-full rounded-full transition-[width,background-color] duration-300",
-                    freeShipUnlocked ? "bg-emerald" : "bg-gold",
-                  )}
-                  style={{
-                    width: `${Math.min(
-                      100,
-                      (cart.subtotalMinor / cart.freeShipThresholdMinor) * 100,
-                    )}%`,
-                  }}
-                />
-              </div>
-            </div>
-
             <ul className="flex-1 divide-y divide-bone/10 overflow-y-auto px-5">
               {cart.lines.map((line) => (
                 <CartLineItem key={line.variantId} line={line} />

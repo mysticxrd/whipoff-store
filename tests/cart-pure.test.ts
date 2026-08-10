@@ -14,8 +14,8 @@ function line(overrides: Partial<CartLineView> = {}): CartLineView {
     variantTitle: "500 ml",
     imageUrl: "gradient:whipoff-gloss-wash:0",
     quantity: 1,
-    unitPriceMinor: 47900,
-    lineTotalMinor: 47900,
+    unitPriceMinor: 47000,
+    lineTotalMinor: 47000,
     currency: "INR",
     inStock: true,
     ...overrides,
@@ -89,24 +89,23 @@ describe("buildCartView", () => {
 
   it("sums quantities and line totals across lines", () => {
     const view = buildCartView([
-      line({ quantity: 2, lineTotalMinor: 95800 }),
+      line({ quantity: 2, lineTotalMinor: 94000 }),
       line({ variantId: VARIANT_B, quantity: 1, unitPriceMinor: 79900, lineTotalMinor: 79900 }),
     ]);
     expect(view.itemCount).toBe(3);
-    expect(view.subtotalMinor).toBe(175700);
+    expect(view.subtotalMinor).toBe(173900);
   });
 
-  it("charges the flat shipping fee below the free-shipping threshold", () => {
-    const view = buildCartView([line({ quantity: 1, lineTotalMinor: 47900 })]);
+  it("charges zero shipping below the legacy free-shipping threshold", () => {
+    const view = buildCartView([line({ quantity: 1, lineTotalMinor: 47000 })]);
     expect(view.subtotalMinor).toBeLessThan(view.freeShipThresholdMinor);
-    expect(view.shippingMinor).toBeGreaterThan(0);
-    expect(view.totalMinor).toBe(view.subtotalMinor + view.shippingMinor);
-    expect(view.freeShipRemainingMinor).toBe(view.freeShipThresholdMinor - view.subtotalMinor);
+    expect(view.shippingMinor).toBe(0);
+    expect(view.totalMinor).toBe(view.subtotalMinor);
   });
 
-  it("waives shipping at/above the free-shipping threshold", () => {
+  it("keeps shipping free at/above the legacy free-shipping threshold", () => {
     const view = buildCartView([
-      line({ quantity: 3, unitPriceMinor: 47900, lineTotalMinor: 143700 }),
+      line({ quantity: 3, unitPriceMinor: 47000, lineTotalMinor: 141000 }),
     ]);
     expect(view.subtotalMinor).toBeGreaterThanOrEqual(view.freeShipThresholdMinor);
     expect(view.shippingMinor).toBe(0);
