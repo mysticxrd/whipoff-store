@@ -74,7 +74,7 @@ export function SiteFooter() {
           <div className="flex flex-col gap-3">
             <span className="mb-1 text-gold">Elsewhere</span>
             <a
-              href="https://instagram.com"
+              href="https://www.instagram.com/whipoff._/"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 py-1 text-bone/60 transition-colors hover:text-bone"
@@ -83,7 +83,7 @@ export function SiteFooter() {
               Instagram
             </a>
             <a
-              href="https://wa.me/"
+              href="https://wa.me/message/RDUSEAB6GG7HA1"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 py-1 text-bone/60 transition-colors hover:text-bone"
