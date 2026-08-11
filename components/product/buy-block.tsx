@@ -107,7 +107,7 @@ export function BuyBlock({
 
           <div className="mt-7">
             <SpecAccordion title="Ingredients & specs">
-              Biodegradable surfactants, Hydroilx™ slip polymers, pH 6.5–7. 518 ml — makes up to
+              Biodegradable surfactants, Hydroslick™ slip polymers, pH 6.5–7. 518 ml — makes up to
               ~25 washes at 1:256 dilution. Vegan, never tested on animals.
             </SpecAccordion>
             <SpecAccordion title="Shipping & returns">

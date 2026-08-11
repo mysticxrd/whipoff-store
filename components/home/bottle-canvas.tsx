@@ -246,7 +246,7 @@ export function BottleCanvas({ className }: { className?: string }) {
       ctx.font = "700 54px 'Space Mono', monospace";
       ctx.fillStyle = "rgba(244, 241, 234, 0.9)";
       ctx.textAlign = "center";
-      ctx.fillText("HYDROILX™ CAR SHAMPOO", LBL_W / 2, 2835);
+      ctx.fillText("HYDROSLICK™ CAR SHAMPOO", LBL_W / 2, 2835);
       ctx.font = "400 46px 'Space Mono', monospace";
       ctx.fillStyle = "rgba(244, 241, 234, 0.62)";
       ctx.fillText("pH 6.9 · 1:256 · 500 ML", LBL_W / 2, 2915);

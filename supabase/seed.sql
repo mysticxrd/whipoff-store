@@ -18,7 +18,7 @@ on conflict (id) do nothing;
 
 -- ---- products (p1 active — the real hero product; p8 draft) ----
 insert into public.products (id, slug, title, description, brand, status, created_at) values
-  ('b0000000-0000-4000-8000-000000000001', 'whipoff-gloss-wash',     'Whipoff Gloss Wash',     'The slick, high-foam Hydroilx™ gloss wash that lifts a fortnight of road film — and leaves your wax and ceramic dead untouched.', 'Whipoff', 'active', '2026-06-20T10:00:00Z'),
+  ('b0000000-0000-4000-8000-000000000001', 'whipoff-gloss-wash',     'Whipoff Gloss Wash',     'The slick, high-foam Hydroslick™ gloss wash that lifts a fortnight of road film — and leaves your wax and ceramic dead untouched.', 'Whipoff', 'active', '2026-06-20T10:00:00Z'),
   ('b0000000-0000-4000-8000-000000000008', 'prototype-glass-sealant','Prototype Glass Sealant','Unreleased hydrophobic glass coating — internal testing only.',                                                                    'Whipoff', 'draft',  '2026-06-13T10:00:00Z')
 on conflict (id) do nothing;
 
@@ -30,7 +30,7 @@ on conflict do nothing;
 
 -- ---- product_images (p1 uses real files in public/; p8 keeps the gradient placeholder) ----
 insert into public.product_images (id, product_id, url, alt, position) values
-  ('d0000000-0000-4000-8000-000000000101', 'b0000000-0000-4000-8000-000000000001', '/whipoff-product.png',        'Whipoff Gloss Wash box and bottle', 0),
+  ('d0000000-0000-4000-8000-000000000101', 'b0000000-0000-4000-8000-000000000001', '/whipoff-product.png',        'Whipoff Gloss Wash bottle', 0),
   ('d0000000-0000-4000-8000-000000000102', 'b0000000-0000-4000-8000-000000000001', '/whipoff-bottle-cutout.png',  'Whipoff Gloss Wash bottle',         1),
   ('d0000000-0000-4000-8000-000000000801', 'b0000000-0000-4000-8000-000000000008', 'gradient:prototype-glass-sealant:0', 'Prototype Glass Sealant bottle', 0)
 on conflict (id) do nothing;

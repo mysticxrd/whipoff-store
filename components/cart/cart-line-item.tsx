@@ -51,6 +51,7 @@ export function CartLineItem({ line }: { line: CartLineView }) {
           alt={line.productTitle}
           name={line.productTitle}
           sizes="64px"
+          className="object-cover"
         />
       </div>
 

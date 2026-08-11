@@ -159,14 +159,14 @@ export const seedProducts: CatalogProduct[] = [
       slug: "whipoff-gloss-wash",
       title: "Whipoff Gloss Wash",
       description:
-        "The slick, high-foam Hydroilx™ gloss wash that lifts a fortnight of road film — and leaves your wax and ceramic dead untouched.",
+        "The slick, high-foam Hydroslick™ gloss wash that lifts a fortnight of road film — and leaves your wax and ceramic dead untouched.",
       brand: "Whipoff",
       status: "active",
       createdAt: "2026-06-20T10:00:00Z",
       categorySlugs: ["exterior"],
     },
     [
-      realImage("d0000000-0000-4000-8000-000000000101", P1, "/whipoff-product.png", 0, "Whipoff Gloss Wash box and bottle", "2026-06-20T10:00:00Z"),
+      realImage("d0000000-0000-4000-8000-000000000101", P1, "/whipoff-product.png", 0, "Whipoff Gloss Wash bottle", "2026-06-20T10:00:00Z"),
       realImage("d0000000-0000-4000-8000-000000000102", P1, "/whipoff-bottle-cutout.png", 1, "Whipoff Gloss Wash bottle", "2026-06-20T10:00:00Z"),
     ],
     [
