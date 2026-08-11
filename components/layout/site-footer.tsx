@@ -44,7 +44,7 @@ export function SiteFooter() {
             The whip deserves it.
           </p>
           <Link
-            href="/"
+            href="/#buy"
             className="inline-flex min-h-[54px] items-center justify-center rounded-full bg-bone px-7 font-medium text-ink transition-colors hover:bg-gold"
           >
             Shop Gloss Wash
