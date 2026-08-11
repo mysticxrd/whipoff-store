@@ -30,6 +30,9 @@ type FormPhase =
   | { phase: "verifying" }
   | { phase: "error"; message: string };
 
+const fieldClassName =
+  "checkout-field h-12 w-full rounded-[10px] border border-bone/14 bg-ink px-3.5 text-sm text-bone shadow-none outline-none placeholder:text-bone/40 transition-[border-color,box-shadow] duration-200 focus:border-gold focus:ring-1 focus:ring-gold/40 disabled:cursor-not-allowed disabled:opacity-50";
+
 export function CheckoutForm() {
   const router = useRouter();
   const { cart, open } = useCart();
@@ -159,8 +162,8 @@ export function CheckoutForm() {
       />
 
       {state.phase === "error" ? (
-        <div className="mb-4 rounded-lg border border-border bg-white p-4 shadow-xs">
-          <p className="text-sm leading-relaxed text-foreground">{state.message}</p>
+        <div className="mb-5 rounded-[10px] border border-bone/14 bg-pine p-4">
+          <p className="text-sm leading-relaxed text-bone/80">{state.message}</p>
           <button
             type="button"
             onClick={open}
@@ -171,56 +174,93 @@ export function CheckoutForm() {
         </div>
       ) : null}
 
-      <form onSubmit={onSubmit} className="space-y-4" aria-busy={busy}>
-        <Field label="Email" name="email" type="email" autoComplete="email" required />
-        <Field label="Full name" name="name" autoComplete="name" required />
-        <Field label="Address" name="line1" autoComplete="address-line1" required />
-        <Field
-          label="Apartment, suite, etc. (optional)"
-          name="line2"
-          autoComplete="address-line2"
-        />
-        <div className="grid grid-cols-2 gap-4">
-          <Field label="City" name="city" autoComplete="address-level2" required />
-          <Field label="State" name="state" autoComplete="address-level1" required />
-        </div>
-        <div className="grid grid-cols-2 gap-4">
+      <form onSubmit={onSubmit} className="space-y-8" aria-busy={busy}>
+        <Section eyebrow="01" title="Contact">
           <Field
-            label="PIN code"
-            name="postal_code"
-            autoComplete="postal-code"
-            inputMode="numeric"
-            pattern="[1-9][0-9]{5}"
-            title="6-digit Indian PIN code"
+            label="Email"
+            name="email"
+            type="email"
+            autoComplete="email"
+            placeholder="you@email.com"
             required
           />
-          <Field
-            label="Phone (optional)"
-            name="phone"
-            type="tel"
-            autoComplete="tel-national"
-            inputMode="numeric"
-            pattern="[6-9][0-9]{9}"
-            title="10-digit Indian mobile number"
-          />
-        </div>
+        </Section>
 
-        <button
-          type="submit"
-          disabled={busy || !scriptReady}
-          className={cn(buttonVariants({ size: "lg" }), "w-full")}
-        >
-          {state.phase === "verifying"
-            ? "Verifying payment…"
-            : state.phase === "submitting"
-              ? "Opening secure payment…"
-              : "Pay with card or UPI"}
-        </button>
-        <p className="text-center font-mono text-xs text-muted-foreground">
-          Payments secured by Razorpay · cards &amp; UPI
-        </p>
+        <Section eyebrow="02" title="Ship to">
+          <Field label="Full name" name="name" autoComplete="name" required />
+          <Field label="Address" name="line1" autoComplete="address-line1" required />
+          <Field
+            label="Apartment, suite, etc. (optional)"
+            name="line2"
+            autoComplete="address-line2"
+          />
+          <div className="grid grid-cols-2 gap-3 sm:gap-4">
+            <Field label="City" name="city" autoComplete="address-level2" required />
+            <Field label="State" name="state" autoComplete="address-level1" required />
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:gap-4">
+            <Field
+              label="PIN code"
+              name="postal_code"
+              autoComplete="postal-code"
+              inputMode="numeric"
+              pattern="[1-9][0-9]{5}"
+              title="6-digit Indian PIN code"
+              required
+            />
+            <Field
+              label="Phone (optional)"
+              name="phone"
+              type="tel"
+              autoComplete="tel-national"
+              inputMode="numeric"
+              pattern="[6-9][0-9]{9}"
+              title="10-digit Indian mobile number"
+            />
+          </div>
+        </Section>
+
+        <div className="space-y-3 pt-1">
+          <button
+            type="submit"
+            disabled={busy || !scriptReady}
+            className={cn(buttonVariants({ size: "lg" }), "w-full")}
+          >
+            {state.phase === "verifying"
+              ? "Verifying payment…"
+              : state.phase === "submitting"
+                ? "Opening secure payment…"
+                : "Pay with card or UPI"}
+          </button>
+          <p className="text-center font-mono text-[0.68rem] uppercase tracking-[0.14em] text-bone/40">
+            Payments secured by Razorpay · cards &amp; UPI
+          </p>
+        </div>
       </form>
     </>
+  );
+}
+
+function Section({
+  eyebrow,
+  title,
+  children,
+}: {
+  eyebrow: string;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="space-y-3.5" aria-labelledby={`checkout-section-${eyebrow}`}>
+      <h2
+        id={`checkout-section-${eyebrow}`}
+        className="mono-label flex items-center gap-2.5 text-[0.66rem] text-gold uppercase"
+      >
+        <span className="text-gold/70">{eyebrow}</span>
+        <span className="text-bone/50">{title}</span>
+      </h2>
+      <div className="space-y-3.5">{children}</div>
+    </section>
   );
 }
 
@@ -232,15 +272,10 @@ function Field({
   const id = `checkout-${name}`;
   return (
     <div>
-      <label htmlFor={id} className="mb-1.5 block text-sm font-semibold text-foreground">
+      <label htmlFor={id} className="mb-1.5 block font-mono text-[0.68rem] uppercase tracking-[0.12em] text-bone/60">
         {label}
       </label>
-      <input
-        id={id}
-        name={name}
-        className="h-11 w-full rounded-md border border-border bg-white px-3 text-sm text-foreground shadow-xs outline-none transition-colors focus:border-foreground"
-        {...rest}
-      />
+      <input id={id} name={name} className={fieldClassName} {...rest} />
     </div>
   );
 }

@@ -34,7 +34,7 @@ const spaceMono = Space_Mono({
 
 export const metadata: Metadata = {
   title: { default: "Whipoff — Car Care", template: "%s · Whipoff" },
-  description: "Hydroilx™ pH-neutral, ceramic-safe car shampoo. Mobile-first car-care essentials.",
+  description: "Hydroslick™ pH-neutral, ceramic-safe car shampoo. Mobile-first car-care essentials.",
 };
 
 export default async function RootLayout({

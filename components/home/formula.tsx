@@ -3,7 +3,7 @@ import { Gauge } from "@/components/home/gauge";
 import { Reveal } from "@/components/home/reveal";
 
 const SPECS = [
-  ["CHEMISTRY", "pH-neutral surfactant blend, Hydroilx™ slip polymers"],
+  ["CHEMISTRY", "pH-neutral surfactant blend, Hydroslick™ slip polymers"],
   ["DILUTION", "1 : 256 — 19 ml per 5 L bucket"],
   ["SAFE ON", "wax · sealant · ceramic · PPF · vinyl"],
   ["CUTS", "traffic film, bug residue, a fortnight of neglect"],
@@ -17,7 +17,7 @@ export function Formula() {
       <div className="mx-auto mb-[clamp(48px,8vw,90px)] max-w-[1200px] px-[var(--gutter)]">
         <Reveal>
           <Eyebrow num="02" className="mb-[clamp(18px,3vw,28px)]">
-            The Hydroilx™ formula
+            The Hydroslick™ formula
           </Eyebrow>
         </Reveal>
         <Reveal>

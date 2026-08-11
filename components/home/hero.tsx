@@ -63,7 +63,7 @@ export function Hero({ product }: { product: CatalogProduct }) {
       />
 
       <p className="mono-label mb-3.5 text-center text-[0.66rem] text-gold uppercase lg:text-[0.72rem]">
-        HYDROILX™ pH-NEUTRAL CAR SHAMPOO
+        HYDROSLICK™ pH-NEUTRAL CAR SHAMPOO
       </p>
 
       <h1
