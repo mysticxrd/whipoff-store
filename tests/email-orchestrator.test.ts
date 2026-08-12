@@ -15,6 +15,7 @@ const h = vi.hoisted(() => ({
   captureServerEvent: vi.fn(async () => {}),
   captureMessage: vi.fn(),
   captureException: vi.fn(),
+  getMerchantNotifyEmail: vi.fn(() => "tmwhipoff@gmail.com" as string | null),
 }));
 vi.mock("server-only", () => ({}));
 vi.mock("@/server/email/send", () => ({ sendEmail: h.sendEmail }));
@@ -24,8 +25,12 @@ vi.mock("@sentry/nextjs", () => ({
   captureException: h.captureException,
 }));
 vi.mock("@/lib/env", () => ({ clientEnv: { NEXT_PUBLIC_APP_URL: "https://store.test" } }));
+vi.mock("@/lib/env-server", () => ({
+  getMerchantNotifyEmail: () => h.getMerchantNotifyEmail(),
+}));
 
 import { sendOrderConfirmationForOrder } from "@/server/email/order-confirmation";
+import { sendMerchantOrderAlertForOrder } from "@/server/email/merchant-order-alert";
 
 const ORDER_ID = "order_MNabc123XYZ";
 
@@ -45,6 +50,7 @@ const paidOrder = {
   paid_at: "2026-07-03T10:00:00.000Z",
   created_at: "2026-07-03T09:59:00.000Z",
   confirmation_email_sent_at: null as string | null,
+  merchant_notify_email_sent_at: null as string | null,
 };
 
 const paidItems = [
@@ -275,6 +281,69 @@ describe("sendOrderConfirmationForOrder", () => {
       "order confirmation email failed: unexpected_error",
       "error",
     );
+    expect(onRetryableFailure).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("sendMerchantOrderAlertForOrder", () => {
+  it("happy path: sends to MERCHANT_NOTIFY_EMAIL, THEN marks, independent key", async () => {
+    const { admin, log } = makeAdmin({ log: [] });
+    h.sendEmail.mockImplementation(async () => {
+      log.push("send");
+      return { ok: true, providerId: "email_ops" };
+    });
+
+    await sendMerchantOrderAlertForOrder(admin, ORDER_ID);
+
+    expect(h.sendEmail).toHaveBeenCalledTimes(1);
+    expect(h.sendEmail.mock.calls[0]![0].to).toBe("tmwhipoff@gmail.com");
+    expect(h.sendEmail.mock.calls[0]![0].idempotencyKey).toBe(`order-merchant/${ORDER_ID}`);
+    expect(h.sendEmail.mock.calls[0]![0].subject).toContain("New order #WO-000123");
+    expect(log).toEqual([
+      "send",
+      `rpc:mark_order_merchant_notify_email_sent:${JSON.stringify({ p_order_id: "ord_1" })}`,
+    ]);
+    expect(h.captureServerEvent).toHaveBeenCalledWith(
+      "order_merchant_notify_email_sent",
+      { provider_order_id: ORDER_ID, value_minor: 47000, currency: "INR" },
+      "guest",
+    );
+  });
+
+  it("marker already set: skips — no send, no rpc", async () => {
+    const { admin, rpc } = makeAdmin({
+      order: { ...paidOrder, merchant_notify_email_sent_at: "2026-07-04T00:00:00.000Z" },
+    });
+    await sendMerchantOrderAlertForOrder(admin, ORDER_ID);
+    expect(h.sendEmail).not.toHaveBeenCalled();
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("unset MERCHANT_NOTIFY_EMAIL: skip + log, no send, no retry signal", async () => {
+    h.getMerchantNotifyEmail.mockReturnValueOnce(null);
+    const { admin, rpc } = makeAdmin();
+    const onRetryableFailure = vi.fn();
+    await sendMerchantOrderAlertForOrder(admin, ORDER_ID, { onRetryableFailure });
+    expect(h.sendEmail).not.toHaveBeenCalled();
+    expect(rpc).not.toHaveBeenCalled();
+    expect(onRetryableFailure).not.toHaveBeenCalled();
+    expect(h.captureMessage).not.toHaveBeenCalled();
+  });
+
+  it("customer confirmation marker does not suppress merchant alert", async () => {
+    const { admin } = makeAdmin({
+      order: { ...paidOrder, confirmation_email_sent_at: "2026-07-04T00:00:00.000Z" },
+    });
+    await sendMerchantOrderAlertForOrder(admin, ORDER_ID);
+    expect(h.sendEmail).toHaveBeenCalledTimes(1);
+  });
+
+  it("signals webhook retry on transient Resend failure", async () => {
+    const { admin, rpc } = makeAdmin();
+    const onRetryableFailure = vi.fn();
+    h.sendEmail.mockResolvedValue({ ok: false, reason: "resend_http_503" });
+    await sendMerchantOrderAlertForOrder(admin, ORDER_ID, { onRetryableFailure });
+    expect(rpc).not.toHaveBeenCalled();
     expect(onRetryableFailure).toHaveBeenCalledTimes(1);
   });
 });

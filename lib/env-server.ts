@@ -1,6 +1,7 @@
 import "server-only";
 
 import { z } from "zod";
+import { merchantNotifyEmailEnvSchema } from "@/lib/contracts";
 import { clientEnv } from "@/lib/env";
 
 // Server-side secrets — the counterpart to lib/env.ts (which is NEXT_PUBLIC_* only).
@@ -152,4 +153,21 @@ const DEFAULT_EMAIL_FROM = "Whipoff <onboarding@resend.dev>";
 export function getEmailFrom(): string {
   const raw = process.env.EMAIL_FROM?.trim();
   return raw !== undefined && raw !== "" ? raw : DEFAULT_EMAIL_FROM;
+}
+
+/**
+ * Ops recipient for the merchant “new order” alert. OPTIONAL by design: `null` = not
+ * configured → the orchestrator skips + logs without failing the paid webhook (PRD).
+ * A PRESENT but malformed value throws; that throw is contained inside the failure-isolated
+ * merchant email path.
+ */
+export function getMerchantNotifyEmail(): string | null {
+  const raw = process.env.MERCHANT_NOTIFY_EMAIL;
+  if (raw === undefined || raw.trim() === "") return null;
+  const parsed = merchantNotifyEmailEnvSchema.safeParse(raw);
+  if (!parsed.success) {
+    const message = parsed.error.issues[0]?.message ?? "invalid value";
+    throw new Error(`Missing/invalid server env MERCHANT_NOTIFY_EMAIL: ${message} — see .env.example`);
+  }
+  return parsed.data;
 }

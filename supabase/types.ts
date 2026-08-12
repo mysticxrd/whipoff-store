@@ -274,6 +274,7 @@ export type Database = {
           currency: string
           email: string
           id: string
+          merchant_notify_email_sent_at: string | null
           order_seq: number
           paid_at: string | null
           provider_order_id: string
@@ -294,6 +295,7 @@ export type Database = {
           currency?: string
           email: string
           id?: string
+          merchant_notify_email_sent_at?: string | null
           order_seq?: number
           paid_at?: string | null
           provider_order_id: string
@@ -314,6 +316,7 @@ export type Database = {
           currency?: string
           email?: string
           id?: string
+          merchant_notify_email_sent_at?: string | null
           order_seq?: number
           paid_at?: string | null
           provider_order_id?: string
@@ -532,6 +535,10 @@ export type Database = {
         Returns: string
       }
       mark_order_confirmation_email_sent: {
+        Args: { p_order_id: string }
+        Returns: boolean
+      }
+      mark_order_merchant_notify_email_sent: {
         Args: { p_order_id: string }
         Returns: boolean
       }
