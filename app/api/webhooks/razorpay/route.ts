@@ -9,6 +9,7 @@ import {
   type RazorpayWebhookEvent,
 } from "@/lib/contracts";
 import { sendOrderConfirmationForOrder } from "@/server/email/order-confirmation";
+import { sendMerchantOrderAlertForOrder } from "@/server/email/merchant-order-alert";
 
 // Razorpay webhook — THE writer of order state (payments.md, unchanged from the Stripe era).
 // Everything else about orders is read-only. Posture:
@@ -26,9 +27,10 @@ import { sendOrderConfirmationForOrder } from "@/server/email/order-confirmation
 //  - payment.failed is NOT terminal (Razorpay lets the shopper retry within the same order):
 //    mark_checkout_failed stamps failed_at telemetry only; no cancelled Order is ever written.
 //  - Writes go through the service-role client (bypasses RLS by design).
-//  - Confirmation email is a POST-COMMIT side-effect attempted by the inserted event and
-//    retries of that SAME event only. The sibling paid-family event returns duplicate_order
-//    and skips it. Retryable failures request a 500; Resend idempotency prevents duplicates.
+//  - Confirmation + merchant alert emails are POST-COMMIT side-effects attempted by the
+//    inserted event and retries of that SAME event only. The sibling paid-family event
+//    returns duplicate_order and skips both. Each channel has its own marker + Resend key;
+//    either can fail/retry without blocking the other. Retryable failures return 500.
 
 export const runtime = "nodejs";
 
@@ -136,8 +138,13 @@ async function handlePaid(
         retryableEmailFailure = true;
       },
     });
+    await sendMerchantOrderAlertForOrder(admin, providerOrderId, {
+      onRetryableFailure: () => {
+        retryableEmailFailure = true;
+      },
+    });
     if (retryableEmailFailure) {
-      throw new Error("order confirmation email requires retry");
+      throw new Error("order email requires retry");
     }
   }
 

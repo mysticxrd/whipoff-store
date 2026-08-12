@@ -94,6 +94,7 @@ export async function createCheckout(input: {
           state: input.shipping.state,
           postal_code: input.shipping.postal_code,
           country: input.shipping.country,
+          ...(input.shipping.phone ? { phone: input.shipping.phone } : {}),
         },
         items: buildItemsSnapshot(enriched),
         provider_order_id: `pending_${crypto.randomUUID()}`,

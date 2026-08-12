@@ -6,6 +6,7 @@ const h = vi.hoisted(() => ({
   verifyWebhookSignature: vi.fn(() => true),
   captureServerEvent: vi.fn(async () => {}),
   sendOrderConfirmationForOrder: vi.fn<(...args: unknown[]) => Promise<void>>(),
+  sendMerchantOrderAlertForOrder: vi.fn<(...args: unknown[]) => Promise<void>>(),
   captureMessage: vi.fn(),
   captureException: vi.fn(),
 }));
@@ -21,6 +22,9 @@ vi.mock("@/lib/analytics-server", () => ({
 }));
 vi.mock("@/server/email/order-confirmation", () => ({
   sendOrderConfirmationForOrder: h.sendOrderConfirmationForOrder,
+}));
+vi.mock("@/server/email/merchant-order-alert", () => ({
+  sendMerchantOrderAlertForOrder: h.sendMerchantOrderAlertForOrder,
 }));
 vi.mock("@sentry/nextjs", () => ({
   captureMessage: h.captureMessage,
@@ -64,11 +68,12 @@ beforeEach(() => {
     error: null,
   }));
   h.sendOrderConfirmationForOrder.mockResolvedValue(undefined);
+  h.sendMerchantOrderAlertForOrder.mockResolvedValue(undefined);
   vi.spyOn(console, "log").mockImplementation(() => {});
 });
 
 describe("Razorpay paid-family orchestration", () => {
-  it("lets only the event that inserts the order attempt the receipt", async () => {
+  it("lets only the event that inserts the order attempt receipt + merchant alert", async () => {
     h.outcomes.push("inserted", "duplicate_order");
 
     const inserted = await POST(webhookRequest("order.paid", "evt_paid"));
@@ -77,7 +82,8 @@ describe("Razorpay paid-family orchestration", () => {
     expect(inserted.status).toBe(200);
     expect(sibling.status).toBe(200);
     expect(h.sendOrderConfirmationForOrder).toHaveBeenCalledTimes(1);
-    expect(h.sendOrderConfirmationForOrder).toHaveBeenCalledWith(
+    expect(h.sendMerchantOrderAlertForOrder).toHaveBeenCalledTimes(1);
+    expect(h.sendMerchantOrderAlertForOrder).toHaveBeenCalledWith(
       expect.anything(),
       ORDER_ID,
       expect.objectContaining({ onRetryableFailure: expect.any(Function) }),
@@ -107,6 +113,9 @@ describe("Razorpay paid-family orchestration", () => {
       expect(h.sendOrderConfirmationForOrder).toHaveBeenCalledTimes(
         outcome === "duplicate_event" ? 1 : 0,
       );
+      expect(h.sendMerchantOrderAlertForOrder).toHaveBeenCalledTimes(
+        outcome === "duplicate_event" ? 1 : 0,
+      );
     },
   );
 
@@ -121,5 +130,27 @@ describe("Razorpay paid-family orchestration", () => {
 
     expect(response.status).toBe(500);
     expect(h.captureException).toHaveBeenCalled();
+  });
+
+  it("attempts merchant alert on inserted even when confirmation succeeds", async () => {
+    h.outcomes.push("inserted");
+
+    const response = await POST(webhookRequest("order.paid", "evt_merchant"));
+
+    expect(response.status).toBe(200);
+    expect(h.sendOrderConfirmationForOrder).toHaveBeenCalledTimes(1);
+    expect(h.sendMerchantOrderAlertForOrder).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns 500 when merchant alert signals a retryable failure", async () => {
+    h.outcomes.push("inserted");
+    h.sendMerchantOrderAlertForOrder.mockImplementation(async (...args: unknown[]) => {
+      const hooks = args[2] as { onRetryableFailure?: () => void };
+      hooks?.onRetryableFailure?.();
+    });
+
+    const response = await POST(webhookRequest("order.paid", "evt_merchant_retry"));
+
+    expect(response.status).toBe(500);
   });
 });

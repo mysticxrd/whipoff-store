@@ -4,6 +4,10 @@ import {
   escapeHtml,
   renderOrderConfirmationEmail,
 } from "@/lib/email/pure";
+import {
+  composeMerchantOrderAlert,
+  renderMerchantOrderAlert,
+} from "@/lib/email/merchant-alert";
 import type { Json } from "@/supabase/types";
 
 // Slice 5 — pure compose/render core (authored at 03_verify, joins the change-set).
@@ -157,5 +161,67 @@ describe("renderOrderConfirmationEmail", () => {
     );
     expect(rendered.html).not.toContain("Shipping to");
     expect(rendered.text).not.toContain("Shipping to:");
+  });
+});
+
+const MERCHANT_EMAIL = "tmwhipoff@gmail.com";
+
+function composedMerchant(overrides: Partial<typeof baseOrder> = {}, items = baseItems) {
+  return composeMerchantOrderAlert({ ...baseOrder, ...overrides }, items, MERCHANT_EMAIL);
+}
+
+describe("composeMerchantOrderAlert", () => {
+  it("maps paid order rows to an ops packing sheet with buyer phone when present", () => {
+    const result = composedMerchant({
+      shipping_address: {
+        line1: "12 MG Road",
+        city: "Bengaluru",
+        state: "KA",
+        postal_code: "560001",
+        country: "IN",
+        phone: "9876543210",
+      },
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.alert.orderNumber).toBe("WO-000123");
+    expect(result.alert.merchantEmail).toBe(MERCHANT_EMAIL);
+    expect(result.alert.buyerEmail).toBe("buyer@example.com");
+    expect(result.alert.buyerPhone).toBe("9876543210");
+    expect(result.alert.amountTotalMinor).toBe(47000);
+  });
+
+  it("sets buyerPhone null when shipping_address has no phone", () => {
+    const result = composedMerchant();
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.alert.buyerPhone).toBeNull();
+  });
+
+  it("fails closed on zero line items", () => {
+    const result = composedMerchant({}, []);
+    expect(result.ok).toBe(false);
+  });
+});
+
+describe("renderMerchantOrderAlert", () => {
+  it("subject includes order number and INR total; body is an ops packing sheet", () => {
+    const composed = composedMerchant({
+      shipping_address: {
+        line1: "12 MG Road",
+        city: "Bengaluru",
+        country: "IN",
+        phone: "9876543210",
+      },
+    });
+    if (!composed.ok) throw new Error(composed.reason);
+    const rendered = renderMerchantOrderAlert(composed.alert);
+    expect(rendered.subject).toBe("New order #WO-000123 — ₹470");
+    expect(rendered.html).toContain("New order");
+    expect(rendered.html).toContain("9876543210");
+    expect(rendered.html).toContain("buyer@example.com");
+    expect(rendered.html).toContain("Ship to");
+    expect(rendered.text).toContain("Phone: 9876543210");
+    expect(rendered.html).not.toContain("/sign-in");
   });
 });

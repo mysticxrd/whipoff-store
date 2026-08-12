@@ -1,7 +1,7 @@
 // Zod contracts — Slice 0 (auth + profile) + Slice 1 (catalog reads) + Slice 2 (cart mutations)
 // + Slice 3 (checkout + payments boundaries, RE-PLATFORMED to Razorpay by the provider-swap
 // slice, 2026-07-12) + Slice 4 (account + order history + guest claim) + Slice 5
-// (order-confirmation email receipt shape).
+// (order-confirmation email receipt shape) + merchant “new order” alert (ops packing sheet).
 //
 // SINGLE SOURCE OF TRUTH for input validation, shared by client (UX) and server
 // (re-validation). See shared/api_conventions.md and _config/security_shield.md flaw #3:
@@ -458,3 +458,64 @@ export const orderConfirmationEmailSchema = z.object({
   shippingAddress: shippingAddressSnapshotSchema,
 });
 export type OrderConfirmationEmail = z.infer<typeof orderConfirmationEmailSchema>;
+
+// ===========================================================================
+// Merchant “new order” alert (Resend) — ops packing sheet
+// ===========================================================================
+// Same trigger as Slice 5 (Razorpay webhook post record_paid_order). NO new client trust
+// boundary. Internal compose contract only. Prefer-delivery + independent idempotency live
+// at the SEND step (server/email/merchant-order-alert.ts). Buyer phone is optional on
+// shippingDetailsSchema and, when present, lives on orders.shipping_address.phone.
+
+/** Packing line — same snapshot shape as orderConfirmationLineSchema. */
+export const merchantOrderAlertLineSchema = orderConfirmationLineSchema;
+export type MerchantOrderAlertLine = z.infer<typeof merchantOrderAlertLineSchema>;
+
+/**
+ * Shipping snapshot for the merchant alert — customer receipt keys PLUS optional phone.
+ * Display-only: whole object `.catch(null)` so a bad blob never blocks the ops alert.
+ */
+export const merchantShippingAddressSnapshotSchema = z
+  .object({
+    line1: z.string().nullish(),
+    line2: z.string().nullish(),
+    city: z.string().nullish(),
+    state: z.string().nullish(),
+    postal_code: z.string().nullish(),
+    country: z.string().nullish(),
+    phone: z.string().nullish(),
+  })
+  .nullable()
+  .catch(null);
+export type MerchantShippingAddressSnapshot = z.infer<
+  typeof merchantShippingAddressSnapshotSchema
+>;
+
+/**
+ * Ops packing-sheet handed to the Resend merchant template. Composed server-side from the
+ * persisted Order + item snapshots (NEVER the client). `merchantEmail` is MERCHANT_NOTIFY_EMAIL
+ * (ops), not the buyer. `buyerPhone` is null when absent — never fails the send.
+ */
+export const merchantOrderAlertEmailSchema = z.object({
+  orderNumber: orderNumberSchema,
+  merchantEmail: z.email(),
+  buyerEmail: z.email(),
+  buyerPhone: z.string().nullable(),
+  currency: z.string().length(3),
+  paidAt: z.string().min(1),
+  lines: z.array(merchantOrderAlertLineSchema).min(1),
+  amountSubtotalMinor: minorAmountSchema,
+  amountShippingMinor: minorAmountSchema,
+  amountTaxMinor: minorAmountSchema,
+  amountTotalMinor: minorAmountSchema,
+  shippingName: z.string().nullable(),
+  shippingAddress: merchantShippingAddressSnapshotSchema,
+});
+export type MerchantOrderAlertEmail = z.infer<typeof merchantOrderAlertEmailSchema>;
+
+/** Optional env boundary for the ops recipient. Missing/empty → skip + log (non-fatal). */
+export const merchantNotifyEmailEnvSchema = z
+  .string()
+  .trim()
+  .pipe(z.email("MERCHANT_NOTIFY_EMAIL must be a valid email."));
+export type MerchantNotifyEmail = z.infer<typeof merchantNotifyEmailEnvSchema>;
