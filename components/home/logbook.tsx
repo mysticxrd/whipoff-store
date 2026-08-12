@@ -3,23 +3,23 @@ import { Reveal } from "@/components/home/reveal";
 
 const ENTRIES = [
   {
-    meta: "ENTRY № 0847 — PUNE",
+    meta: "ENTRY № 0847 — KOZHIKODE",
     quote: "“Foam so thick I briefly lost the mitt.”",
     who: "ARJUN M. · ’19 POLO GT TSI",
   },
   {
-    meta: "ENTRY № 0912 — GURGAON",
+    meta: "ENTRY № 0912 — KANNUR",
     quote: "“My detailer asked what I switched to. I told him nothing.”",
-    who: "KABIR S. · ’22 911 CARRERA S",
+    who: "SHIFAD · HONDA CIVIC ZX",
   },
   {
     meta: "ENTRY № 1044 — KOCHI",
     quote: "“Wash day went from chore to therapy. My neighbours are concerned.”",
-    who: "MEERA D. · ’17 ABARTH PUNTO",
+    who: "ADITHYAN · ETIOS LIVA",
   },
   {
     meta: "ENTRY № 1108 — BENGALURU",
-    quote: "“Water sheets off like the car is embarrassed to be wet.”",
+    quote: "“Foam holds on the tank long enough to scrub without chasing drips.”",
     who: "DEV P. · ’23 INTERCEPTOR 650",
   },
 ];
