@@ -4,17 +4,17 @@ import { Reveal } from "@/components/home/reveal";
 const ENTRIES = [
   {
     meta: "ENTRY № 0847 — KOZHIKODE",
-    quote: "“Foam so thick I briefly lost the mitt.”",
+    quote: "“Holds on vertical panels long enough to scrub properly, then rinses clean.”",
     who: "ARJUN M. · ’19 POLO GT TSI",
   },
   {
     meta: "ENTRY № 0912 — KANNUR",
-    quote: "“My detailer asked what I switched to. I told him nothing.”",
+    quote: "“Took half the usual time and the finish looked better than the local wash.”",
     who: "SHIFAD · HONDA CIVIC ZX",
   },
   {
     meta: "ENTRY № 1044 — KOCHI",
-    quote: "“Wash day went from chore to therapy. My neighbours are concerned.”",
+    quote: "“No swirls after, just clean paint and a proper gloss.”",
     who: "ADITHYAN · ETIOS LIVA",
   },
   {
