@@ -33,8 +33,18 @@ const spaceMono = Space_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_APP_URL?.trim() || "https://www.whipoff.in",
+  ),
   title: { default: "Whipoff — Car Care", template: "%s · Whipoff" },
-  description: "Hydroslick™ pH-neutral, ceramic-safe car shampoo. Mobile-first car-care essentials.",
+  description:
+    "Hydroslick™ pH-neutral, ceramic-safe car shampoo. Mobile-first car-care essentials.",
+  applicationName: "Whipoff",
+  openGraph: {
+    siteName: "Whipoff",
+    type: "website",
+    locale: "en_IN",
+  },
 };
 
 export default async function RootLayout({
