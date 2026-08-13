@@ -92,10 +92,10 @@ export function SiteFooter() {
               WhatsApp
             </a>
             <a
-              href="mailto:hello@whipoff.in"
+              href="mailto:tmwhipoff@gmail.com"
               className="py-1 text-bone/60 transition-colors hover:text-bone"
             >
-              hello@whipoff.in
+              tmwhipoff@gmail.com
             </a>
           </div>
         </div>
