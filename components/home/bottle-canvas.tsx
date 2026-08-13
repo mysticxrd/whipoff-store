@@ -108,7 +108,8 @@ export function BottleCanvas({ className }: { className?: string }) {
     camera.lookAt(0, 0.05, 0);
 
     const pmrem = new THREE.PMREMGenerator(renderer);
-    scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    const environmentTarget = pmrem.fromScene(new RoomEnvironment(), 0.04);
+    scene.environment = environmentTarget.texture;
 
     const key = new THREE.DirectionalLight(0xfff4e0, 1.15);
     key.position.set(3.5, 5, 4);
@@ -123,20 +124,63 @@ export function BottleCanvas({ className }: { className?: string }) {
     const group = new THREE.Group();
     scene.add(group);
 
-    const R = 0.74; // body radius
+    /* Locked 4:1 "do it" silhouette with the base shortened by ten percent. */
+    const R = 0.72;
+    const W = R * 2;
+    const TOTAL_H = W * 4;
+    const sx = R / 0.74;
+    const BODY_H_FULL = TOTAL_H * 0.78;
+    const STANDING_H = BODY_H_FULL + 1 + (0.5 + 0.01 + 0.26) * 0.9 * sx;
+    const CUT = STANDING_H * 0.1;
+    const BODY_H = BODY_H_FULL - CUT;
+    const bodyTop = BODY_H;
+    const baseChamfer = BODY_H * 0.045;
+    const heelH = baseChamfer + 0.06;
+    const neckR = 0.3 * sx;
+    const finishR = 0.26 * sx;
+    const shoulderH = 0.63;
+    const liquidTop = bodyTop + 0.37;
 
-    /* 4.1:1 silhouette — straight wall, domed shoulder, short neck, cap */
-    const bottleProfile = [
-      [0.0, 0.02], [0.45, 0.02], [0.66, 0.06], [0.73, 0.13], [R, 0.24],
-      [R, 4.61],
-      [0.735, 4.74], [0.71, 4.84], [0.665, 4.91], [0.6, 4.965],
-      [0.52, 5.005], [0.44, 5.025], [0.37, 5.03],
-      [0.305, 5.06], [0.305, 5.35],
-      [0.335, 5.37], [0.335, 5.42],
-      [0.29, 5.44], [0.29, 5.6],
-    ].map(([px, py]) => new THREE.Vector2(px, py));
+    function densify(controls: THREE.Vector2[], samples: number) {
+      const curve = new THREE.CatmullRomCurve3(
+        controls.map((point) => new THREE.Vector3(point.x, point.y, 0)),
+        false,
+        "centripetal",
+        0.5,
+      );
+      return curve
+        .getSpacedPoints(samples - 1)
+        .map((point) => new THREE.Vector2(Math.max(0, point.x), point.y));
+    }
 
-    const glassGeo = new THREE.LatheGeometry(bottleProfile, 72);
+    const bottleProfile: THREE.Vector2[] = [];
+    for (let i = 0; i <= 40; i++) {
+      const angle = ((i / 40) * Math.PI) / 2;
+      bottleProfile.push(
+        new THREE.Vector2(
+          R * Math.sin(angle),
+          0.026 + (heelH - 0.026) * (1 - Math.cos(angle)),
+        ),
+      );
+    }
+    bottleProfile.push(new THREE.Vector2(R, bodyTop));
+    for (let i = 1; i <= 96; i++) {
+      const t = i / 96;
+      const k = 1 - Math.pow(Math.cos((t * Math.PI) / 2), 0.72);
+      const bulge = 1 - 0.05 * Math.sin(t * Math.PI);
+      const radius = neckR + (R - neckR) * (1 - k) * bulge;
+      bottleProfile.push(new THREE.Vector2(radius, bodyTop + t * shoulderH));
+    }
+    for (let i = 1; i <= 48; i++) {
+      const t = i / 48;
+      const y = bodyTop + shoulderH + t * (1 - shoulderH);
+      const bead = Math.exp(-(((t - 0.58) / 0.16) ** 2)) * 0.02 * sx;
+      const radius = neckR + (finishR - neckR) * t * t + bead;
+      bottleProfile.push(new THREE.Vector2(radius, y));
+    }
+
+    const glassGeo = new THREE.LatheGeometry(bottleProfile, 192);
+    glassGeo.computeVertexNormals();
     const glassMat = new THREE.MeshPhysicalMaterial({
       color: 0xf2f7f4,
       metalness: 0,
@@ -154,15 +198,31 @@ export function BottleCanvas({ className }: { className?: string }) {
     group.add(new THREE.Mesh(glassGeo, glassMat));
 
     const liquidTex = makeLiquidTexture();
-    /* ~97% fill — liquid rides into the neck */
-    const liquidProfile = [
-      [0.0, 0.06], [0.42, 0.06], [0.6, 0.09], [0.665, 0.15], [0.695, 0.28],
-      [0.695, 4.61],
-      [0.69, 4.74], [0.665, 4.84], [0.62, 4.91], [0.555, 4.965],
-      [0.475, 5.0], [0.42, 5.01],
-      [0.275, 5.04], [0.265, 5.28], [0.0, 5.28],
-    ].map(([px, py]) => new THREE.Vector2(px, py));
-    const liquidGeo = new THREE.LatheGeometry(liquidProfile, 64);
+    /* The locked fill shape uses the current version's green marbled texture. */
+    const liqR = R - 0.028;
+    const liqNeck = Math.max(0.12, neckR - 0.05);
+    const liquidProfile: THREE.Vector2[] = [];
+    for (let i = 0; i <= 28; i++) {
+      const angle = ((i / 28) * Math.PI) / 2;
+      liquidProfile.push(
+        new THREE.Vector2(
+          liqR * Math.sin(angle),
+          0.026 + (heelH - 0.026) * (1 - Math.cos(angle)),
+        ),
+      );
+    }
+    liquidProfile.push(new THREE.Vector2(liqR, bodyTop));
+    const liqShoulderT = Math.min(1, (liquidTop - bodyTop) / shoulderH);
+    for (let i = 1; i <= 64; i++) {
+      const t = (liqShoulderT * i) / 64;
+      const k = 1 - Math.pow(Math.cos((t * Math.PI) / 2), 0.72);
+      const bulge = 1 - 0.05 * Math.sin(t * Math.PI);
+      const radius = liqNeck + (liqR - liqNeck) * (1 - k) * bulge;
+      liquidProfile.push(new THREE.Vector2(radius, bodyTop + t * shoulderH));
+    }
+    liquidProfile.push(new THREE.Vector2(0, liquidTop));
+    const liquidGeo = new THREE.LatheGeometry(liquidProfile, 144);
+    liquidGeo.computeVertexNormals();
     /* No transmission on the liquid — transmissive objects are excluded from
        each other's refraction pass, so it would turn invisible in the glass. */
     const liquidMat = isTouch
@@ -182,7 +242,7 @@ export function BottleCanvas({ className }: { className?: string }) {
         });
     group.add(new THREE.Mesh(liquidGeo, liquidMat));
 
-    /* cap — short semi-gloss black flip-top */
+    /* Locked two-piece flip-top cap. */
     const capMat = new THREE.MeshPhysicalMaterial({
       color: 0x0b0b0b,
       roughness: 0.34,
@@ -190,17 +250,78 @@ export function BottleCanvas({ className }: { className?: string }) {
       clearcoat: 0.55,
       clearcoatRoughness: 0.22,
     });
-    const capProfile = [
-      [0.0, 0.0], [0.345, 0.0],
-      [0.345, 0.19],
-      [0.312, 0.21], [0.312, 0.25],
-      [0.358, 0.275], [0.358, 0.5],
-      [0.345, 0.545], [0.3, 0.585],
-      [0.29, 0.595], [0.0, 0.595],
-    ].map(([px, py]) => new THREE.Vector2(px, py));
-    const cap = new THREE.Mesh(new THREE.LatheGeometry(capProfile, 64), capMat);
-    cap.position.y = 5.44;
-    group.add(cap);
+    const capR = 0.46;
+    const baseH = 0.62;
+    const lidH = 0.16;
+    const seam = 0.012;
+    const capGroup = new THREE.Group();
+    capGroup.position.y = bodyTop + 0.84;
+    capGroup.scale.setScalar(0.9 * sx);
+    const baseProfile = densify(
+      [
+        new THREE.Vector2(0, 0),
+        new THREE.Vector2(capR - 0.055, 0),
+        new THREE.Vector2(capR - 0.012, 0.012),
+        new THREE.Vector2(capR, 0.035),
+        new THREE.Vector2(capR, baseH - 0.025),
+        new THREE.Vector2(capR - 0.008, baseH - 0.006),
+        new THREE.Vector2(capR - 0.025, baseH),
+        new THREE.Vector2(0, baseH),
+      ],
+      48,
+    );
+    capGroup.add(new THREE.Mesh(new THREE.LatheGeometry(baseProfile, 96), capMat));
+
+    const lowerLip = new THREE.Mesh(
+      new THREE.TorusGeometry(capR - 0.006, 0.018, 10, 96),
+      capMat,
+    );
+    lowerLip.rotation.x = Math.PI / 2;
+    lowerLip.position.y = 0.032;
+    capGroup.add(lowerLip);
+
+    const lidProfile = densify(
+      [
+        new THREE.Vector2(0, 0),
+        new THREE.Vector2(capR - 0.025, 0),
+        new THREE.Vector2(capR + 0.006, 0.01),
+        new THREE.Vector2(capR + 0.006, lidH - 0.03),
+        new THREE.Vector2(capR - 0.004, lidH - 0.012),
+        new THREE.Vector2(capR - 0.03, lidH),
+        new THREE.Vector2(0, lidH),
+      ],
+      48,
+    );
+    const lid = new THREE.Mesh(new THREE.LatheGeometry(lidProfile, 96), capMat);
+    lid.position.y = baseH + seam;
+    capGroup.add(lid);
+
+    const seamRing = new THREE.Mesh(
+      new THREE.TorusGeometry(capR + 0.002, 0.01, 8, 96),
+      capMat,
+    );
+    seamRing.rotation.x = Math.PI / 2;
+    seamRing.position.y = baseH + seam * 0.5;
+    capGroup.add(seamRing);
+
+    const hingeY = baseH + seam / 2;
+    const knuckle = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.035, 0.035, 0.11, 20),
+      capMat,
+    );
+    knuckle.rotation.x = Math.PI / 2;
+    knuckle.position.set(capR + 0.016, hingeY + 0.01, 0);
+    capGroup.add(knuckle);
+    const hingeStrap = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.2, 0.09), capMat);
+    hingeStrap.position.set(capR + 0.02, hingeY - 0.025, 0);
+    capGroup.add(hingeStrap);
+    const thumbTab = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.035, 0.14), capMat);
+    thumbTab.position.set(-(capR + 0.012), baseH + seam + 0.022, 0);
+    capGroup.add(thumbTab);
+    const thumbLip = new THREE.Mesh(new THREE.BoxGeometry(0.042, 0.02, 0.12), capMat);
+    thumbLip.position.set(-(capR + 0.008), baseH - 0.003, 0);
+    capGroup.add(thumbLip);
+    group.add(capGroup);
 
     /* label — wordmark drawn on a canvas, wrapped on a cylinder */
     const LBL_W = 1024;
@@ -271,7 +392,7 @@ export function BottleCanvas({ className }: { className?: string }) {
       .catch(drawLabel);
     drawLabel();
 
-    const GROUP_Y = -2.68;
+    const GROUP_Y = -TOTAL_H * 0.47 + CUT;
     group.position.y = GROUP_Y;
 
     function resize() {
@@ -330,7 +451,7 @@ export function BottleCanvas({ className }: { className?: string }) {
         GROUP_Y + (reduceMotion ? 0 : Math.sin(t * 0.9) * 0.05) + (1 - entrance) * -0.7;
 
       const s = 0.72 + entrance * 0.16;
-      group.scale.setScalar(s);
+      group.scale.set(s * 0.95, s, s * 0.95);
 
       renderer.render(scene, camera);
     }
@@ -350,6 +471,7 @@ export function BottleCanvas({ className }: { className?: string }) {
       });
       liquidTex.dispose();
       labelTex.dispose();
+      environmentTarget.dispose();
       pmrem.dispose();
       renderer.dispose();
     };
@@ -359,6 +481,7 @@ export function BottleCanvas({ className }: { className?: string }) {
     <canvas
       ref={canvasRef}
       className={className}
+      role="img"
       aria-label="Rotating 3D bottle of Whipoff Gloss Wash"
     />
   );
