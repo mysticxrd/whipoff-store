@@ -130,7 +130,8 @@ export function BottleCanvas({ className }: { className?: string }) {
     const TOTAL_H = W * 4;
     const sx = R / 0.74;
     const BODY_H_FULL = TOTAL_H * 0.78;
-    const STANDING_H = BODY_H_FULL + 1 + (0.5 + 0.01 + 0.26) * 0.9 * sx;
+    const CAP_SCALE = 0.83 * sx;
+    const STANDING_H = BODY_H_FULL + 1 + (0.5 + 0.01 + 0.26) * CAP_SCALE;
     const CUT = STANDING_H * 0.1;
     const BODY_H = BODY_H_FULL - CUT;
     const bodyTop = BODY_H;
@@ -256,7 +257,7 @@ export function BottleCanvas({ className }: { className?: string }) {
     const seam = 0.012;
     const capGroup = new THREE.Group();
     capGroup.position.y = bodyTop + 0.84;
-    capGroup.scale.setScalar(0.9 * sx);
+    capGroup.scale.setScalar(CAP_SCALE);
     const baseProfile = densify(
       [
         new THREE.Vector2(0, 0),
@@ -383,7 +384,7 @@ export function BottleCanvas({ className }: { className?: string }) {
       depthWrite: false,
     });
     const label = new THREE.Mesh(labelGeo, labelMat);
-    label.position.y = 2.42;
+    label.position.y = 2.2;
     group.add(label);
 
     document.fonts
