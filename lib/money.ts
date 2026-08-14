@@ -38,7 +38,10 @@ const LAUNCH_SALE_FRACTION = 0.8;
 
 /** The pre-sale strikethrough price for a launch-sale variant, derived from its current price. */
 export function formatWasPrice(saleMinorUnits: number, currency: string): string {
-  return formatPrice(Math.round(saleMinorUnits / LAUNCH_SALE_FRACTION), currency);
+  const wasMajorUnits = Math.round(
+    saleMinorUnits / LAUNCH_SALE_FRACTION / MINOR_UNITS_PER_MAJOR,
+  );
+  return formatPrice(wasMajorUnits * MINOR_UNITS_PER_MAJOR, currency);
 }
 
 /**

@@ -4,6 +4,7 @@ import {
   formatPrice,
   formatPriceFrom,
   formatPriceRange,
+  formatWasPrice,
   FREE_SHIP_THRESHOLD_MINOR,
   FLAT_SHIP_FEE_MINOR,
 } from "@/lib/money";
@@ -27,6 +28,14 @@ describe("formatPrice (INR, en-IN)", () => {
 describe("formatPriceFrom", () => {
   it("prefixes 'from'", () => {
     expect(formatPriceFrom(44900, "INR")).toBe("from ₹449");
+  });
+});
+
+describe("formatWasPrice", () => {
+  it("rounds derived comparison prices to whole rupees", () => {
+    expect(formatWasPrice(47000, "INR")).toBe("₹588");
+    expect(formatWasPrice(79900, "INR")).toBe("₹999");
+    expect(formatWasPrice(143900, "INR")).toBe("₹1,799");
   });
 });
 
